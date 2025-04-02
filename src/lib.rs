@@ -20,6 +20,13 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
+    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, Default)]
+    pub struct Item<AccountId> {
+        account: Option<AccountId>,
+        revision_id: u32,
+        retracted: bool,
+    }
+
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
     pub struct Nonce([u8; 32]);
 
@@ -44,7 +51,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // No need to define a `call_index` attribute here because of `dev_mode`.
         // No need to define a `weight` attribute here because of `dev_mode`.
-        pub fn publish_revsion(
+        pub fn publish_item(
             origin: OriginFor<T>,
             nonce: Nonce,
             ipfs_hash: IpfsHash,
@@ -52,8 +59,50 @@ pub mod pallet {
             let account = ensure_signed(origin)?;
 
             let item_id = Self::get_item_id(account.clone(), nonce);
-            let revision_id = <RevisionCount<T>>::get(&item_id);
-            <RevisionCount<T>>::insert(&item_id, revision_id + 1);
+
+            if <ItemState<T>>::contains_key(&item_id) {
+                return Err(Error::<T>::ItemExists.into());
+            }
+
+            let item = Item {
+                account: Some(account.clone()),
+                revision_id: 0,
+                retracted: false,
+            };
+            <ItemState<T>>::insert(&item_id, item);
+
+            Self::deposit_event(Event::PublishRevision {
+                account,
+                item_id,
+                revision_id: 0,
+                ipfs_hash,
+            });
+
+            Ok(())
+        }
+
+        pub fn retract(origin: OriginFor<T>) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            Ok(())
+        }
+
+        pub fn publish_revision(
+            origin: OriginFor<T>,
+            item_id: ItemId,
+            ipfs_hash: IpfsHash,
+        ) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.account != Some(account.clone()) {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+
+            let revision_id = item.revision_id + 1;
+            item.revision_id = revision_id;
+
+            <ItemState<T>>::insert(&item_id, item);
 
             Self::deposit_event(Event::PublishRevision {
                 account,
@@ -87,6 +136,17 @@ pub mod pallet {
         },
     }
 
+    // Errors inform users that something went wrong.
+    #[pallet::error]
+    pub enum Error<T> {
+        /// The item could not be found.
+        ItemExists,
+        /// The item could not be found.
+        ItemNotFound,
+        /// The sell order could not be found.
+        WrongAccount,
+    }
+
     #[pallet::storage]
-    pub type RevisionCount<T: Config> = StorageMap<_, _, ItemId, u32, ValueQuery>;
+    pub type ItemState<T: Config> = StorageMap<_, _, ItemId, Item<T::AccountId>>;
 }
