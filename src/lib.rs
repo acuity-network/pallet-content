@@ -22,8 +22,8 @@ pub mod pallet {
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, Default)]
     pub struct Item<AccountId> {
-        account: Option<AccountId>,
-        revision_id: u32,
+        owner: Option<AccountId>, // Owner of the item. None is
+        revision_id: u32,         // Latest revision_id
         retracted: bool,
     }
 
@@ -57,23 +57,23 @@ pub mod pallet {
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
-
+            // Get item_id for the new item.
             let item_id = Self::get_item_id(account.clone(), nonce);
-
+            // Ensure the item does not already exist.
             if <ItemState<T>>::contains_key(&item_id) {
-                return Err(Error::<T>::ItemExists.into());
+                return Err(Error::<T>::ItemAlreadyExists.into());
             }
-
+            // Store item in state.
             let item = Item {
-                account: Some(account.clone()),
+                owner: Some(account.clone()),
                 revision_id: 0,
                 retracted: false,
             };
             <ItemState<T>>::insert(&item_id, item);
-
+            // Emit event to log.
             Self::deposit_event(Event::PublishRevision {
-                account,
                 item_id,
+                owner: account,
                 revision_id: 0,
                 ipfs_hash,
             });
@@ -95,7 +95,7 @@ pub mod pallet {
 
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
 
-            if item.account != Some(account.clone()) {
+            if item.owner != Some(account.clone()) {
                 return Err(Error::<T>::WrongAccount.into());
             }
 
@@ -105,8 +105,8 @@ pub mod pallet {
             <ItemState<T>>::insert(&item_id, item);
 
             Self::deposit_event(Event::PublishRevision {
-                account,
                 item_id,
+                owner: account,
                 revision_id,
                 ipfs_hash,
             });
@@ -129,8 +129,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PublishRevision {
-            account: T::AccountId,
             item_id: ItemId,
+            owner: T::AccountId,
             revision_id: u32,
             ipfs_hash: IpfsHash,
         },
@@ -140,7 +140,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         /// The item could not be found.
-        ItemExists,
+        ItemAlreadyExists,
         /// The item could not be found.
         ItemNotFound,
         /// The sell order could not be found.
