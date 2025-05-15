@@ -27,13 +27,13 @@ pub mod pallet {
         retracted: bool,
     }
 
-    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
+    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
     pub struct Nonce([u8; 32]);
 
-    #[derive(PartialEq, Clone, Debug, TypeInfo, Default, Encode, Decode)]
+    #[derive(PartialEq, Clone, Debug, TypeInfo, Default, Encode, Decode, DecodeWithMemTracking)]
     pub struct ItemId([u8; 32]);
 
-    #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+    #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
     pub struct IpfsHash([u8; 32]);
 
     #[pallet::config]
