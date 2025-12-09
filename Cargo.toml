@@ -19,14 +19,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 log = { version = "0.4.22", default-features = false }
 scale-info = { version = "2.11.1", default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2506-1" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2509-2" }
 
 [features]
 default = ["std"]
