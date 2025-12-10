@@ -71,7 +71,7 @@ impl pallet_balances::Config for Test {
 }
 
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
+    // type RuntimeEvent = RuntimeEvent;
 }
 
 // This function basically just builds a genesis storage key/value store according to

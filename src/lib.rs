@@ -37,10 +37,7 @@ pub mod pallet {
     pub struct IpfsHash([u8; 32]);
 
     #[pallet::config]
-    pub trait Config: pallet_balances::Config + frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-    }
+    pub trait Config: pallet_balances::Config + frame_system::Config {}
 
     // Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
     // method.
@@ -81,8 +78,37 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn retract(origin: OriginFor<T>) -> DispatchResult {
+        pub fn retract_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.owner != Some(account.clone()) {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+            item.retracted = false;
+            <ItemState<T>>::insert(&item_id, item);
+            Self::deposit_event(Event::RetractItem {
+                item_id,
+                owner: account,
+            });
+
+            Ok(())
+        }
+
+        pub fn disown_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.owner != Some(account.clone()) {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+            item.owner = None;
+            <ItemState<T>>::insert(&item_id, item);
+            Self::deposit_event(Event::DisownItem {
+                item_id,
+                owner: account,
+            });
+
             Ok(())
         }
 
@@ -133,6 +159,14 @@ pub mod pallet {
             owner: T::AccountId,
             revision_id: u32,
             ipfs_hash: IpfsHash,
+        },
+        RetractItem {
+            item_id: ItemId,
+            owner: T::AccountId,
+        },
+        DisownItem {
+            item_id: ItemId,
+            owner: T::AccountId,
         },
     }
 
