@@ -13,6 +13,11 @@ pub use pallet::*;
 #[cfg(test)]
 mod tests;
 
+const REVISIONABLE: u8 = 1 << 0;
+const RETRACTABLE: u8 = 1 << 1;
+const TRANSFERABLE: u8 = 1 << 2;
+const RETRACTED: u8 = 1 << 3;
+
 /// Enable `dev_mode` for this pallet.
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -20,11 +25,11 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
-    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, Default)]
+    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
     pub struct Item<AccountId> {
         owner: Option<AccountId>, // Owner of the item. None is
         revision_id: u32,         // Latest revision_id
-        retracted: bool,
+        flags: u8,
     }
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
@@ -51,6 +56,7 @@ pub mod pallet {
         pub fn publish_item(
             origin: OriginFor<T>,
             nonce: Nonce,
+            flags: u8,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -64,7 +70,7 @@ pub mod pallet {
             let item = Item {
                 owner: Some(account.clone()),
                 revision_id: 0,
-                retracted: false,
+                flags,
             };
             <ItemState<T>>::insert(&item_id, item);
             // Emit event to log.
@@ -91,6 +97,14 @@ pub mod pallet {
                 return Err(Error::<T>::WrongAccount.into());
             }
 
+            if item.flags & RETRACTED != 0 {
+                return Err(Error::<T>::ItemRetracted.into());
+            }
+
+            if item.flags & REVISIONABLE == 0 {
+                return Err(Error::<T>::ItemNotRevisionable.into());
+            }
+
             let revision_id = item.revision_id + 1;
             item.revision_id = revision_id;
 
@@ -108,12 +122,25 @@ pub mod pallet {
 
         pub fn retract_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+            let item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
 
             if item.owner != Some(account.clone()) {
                 return Err(Error::<T>::WrongAccount.into());
             }
-            item.retracted = false;
+
+            if item.flags & RETRACTED != 0 {
+                return Err(Error::<T>::ItemRetracted.into());
+            }
+
+            if item.flags & RETRACTABLE == 0 {
+                return Err(Error::<T>::ItemNotRetractable.into());
+            }
+
+            let item = Item {
+                owner: None,
+                revision_id: 0,
+                flags: RETRACTED,
+            };
             <ItemState<T>>::insert(&item_id, item);
             Self::deposit_event(Event::RetractItem {
                 item_id,
@@ -130,6 +157,11 @@ pub mod pallet {
             if item.owner != Some(account.clone()) {
                 return Err(Error::<T>::WrongAccount.into());
             }
+
+            if item.flags & TRANSFERABLE == 0 {
+                return Err(Error::<T>::ItemNotTransferable.into());
+            }
+
             item.owner = None;
             <ItemState<T>>::insert(&item_id, item);
             Self::deposit_event(Event::DisownItem {
@@ -173,14 +205,22 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        /// The item could not be found.
+        /// The item already exists.
         ItemAlreadyExists,
         /// The item could not be found.
         ItemNotFound,
-        /// The sell order could not be found.
+        /// The item has been retracted.
+        ItemRetracted,
+        /// The item is not revisionable.
+        ItemNotRevisionable,
+        /// The item is not retractable.
+        ItemNotRetractable,
+        /// The item is not transferable.
+        ItemNotTransferable,
+        /// Wrong account.
         WrongAccount,
     }
 
     #[pallet::storage]
-    pub type ItemState<T: Config> = StorageMap<_, _, ItemId, Item<T::AccountId>>;
+    pub type ItemState<T: Config> = StorageMap<_, _, ItemId, Item<T::AccountId>, OptionQuery>;
 }
