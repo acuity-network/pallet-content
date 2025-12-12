@@ -78,6 +78,34 @@ pub mod pallet {
             Ok(())
         }
 
+        pub fn publish_revision(
+            origin: OriginFor<T>,
+            item_id: ItemId,
+            ipfs_hash: IpfsHash,
+        ) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.owner != Some(account.clone()) {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+
+            let revision_id = item.revision_id + 1;
+            item.revision_id = revision_id;
+
+            <ItemState<T>>::insert(&item_id, item);
+
+            Self::deposit_event(Event::PublishRevision {
+                item_id,
+                owner: account,
+                revision_id,
+                ipfs_hash,
+            });
+
+            Ok(())
+        }
+
         pub fn retract_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
@@ -107,34 +135,6 @@ pub mod pallet {
             Self::deposit_event(Event::DisownItem {
                 item_id,
                 owner: account,
-            });
-
-            Ok(())
-        }
-
-        pub fn publish_revision(
-            origin: OriginFor<T>,
-            item_id: ItemId,
-            ipfs_hash: IpfsHash,
-        ) -> DispatchResult {
-            let account = ensure_signed(origin)?;
-
-            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
-
-            if item.owner != Some(account.clone()) {
-                return Err(Error::<T>::WrongAccount.into());
-            }
-
-            let revision_id = item.revision_id + 1;
-            item.revision_id = revision_id;
-
-            <ItemState<T>>::insert(&item_id, item);
-
-            Self::deposit_event(Event::PublishRevision {
-                item_id,
-                owner: account,
-                revision_id,
-                ipfs_hash,
             });
 
             Ok(())
