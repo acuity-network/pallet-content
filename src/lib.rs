@@ -15,8 +15,7 @@ mod tests;
 
 const REVISIONABLE: u8 = 1 << 0;
 const RETRACTABLE: u8 = 1 << 1;
-const TRANSFERABLE: u8 = 1 << 2;
-const RETRACTED: u8 = 1 << 3;
+const RETRACTED: u8 = 1 << 5;
 
 /// Enable `dev_mode` for this pallet.
 #[frame_support::pallet(dev_mode)]
@@ -27,8 +26,8 @@ pub mod pallet {
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
     pub struct Item<AccountId> {
-        owner: Option<AccountId>, // Owner of the item. None is
-        revision_id: u32,         // Latest revision_id
+        owner: AccountId, // Owner of the item
+        revision_id: u32, // Latest revision_id
         flags: u8,
     }
 
@@ -57,6 +56,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             nonce: Nonce,
             flags: u8,
+            parents: Vec<ItemId>,
+            links: Vec<ItemId>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -68,16 +69,22 @@ pub mod pallet {
             }
             // Store item in state.
             let item = Item {
-                owner: Some(account.clone()),
+                owner: account.clone(),
                 revision_id: 0,
                 flags,
             };
             <ItemState<T>>::insert(&item_id, item);
             // Emit event to log.
+            Self::deposit_event(Event::PublishItem {
+                item_id: item_id.clone(),
+                owner: account.clone(),
+                parents,
+            });
             Self::deposit_event(Event::PublishRevision {
-                item_id,
+                item_id: item_id.clone(),
                 owner: account,
                 revision_id: 0,
+                links,
                 ipfs_hash,
             });
 
@@ -87,13 +94,14 @@ pub mod pallet {
         pub fn publish_revision(
             origin: OriginFor<T>,
             item_id: ItemId,
+            links: Vec<ItemId>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
 
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
 
-            if item.owner != Some(account.clone()) {
+            if item.owner != account.clone() {
                 return Err(Error::<T>::WrongAccount.into());
             }
 
@@ -114,6 +122,7 @@ pub mod pallet {
                 item_id,
                 owner: account,
                 revision_id,
+                links,
                 ipfs_hash,
             });
 
@@ -122,9 +131,9 @@ pub mod pallet {
 
         pub fn retract_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            let item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
 
-            if item.owner != Some(account.clone()) {
+            if item.owner != account.clone() {
                 return Err(Error::<T>::WrongAccount.into());
             }
 
@@ -136,35 +145,9 @@ pub mod pallet {
                 return Err(Error::<T>::ItemNotRetractable.into());
             }
 
-            let item = Item {
-                owner: None,
-                revision_id: 0,
-                flags: RETRACTED,
-            };
+            item.flags = RETRACTED;
             <ItemState<T>>::insert(&item_id, item);
             Self::deposit_event(Event::RetractItem {
-                item_id,
-                owner: account,
-            });
-
-            Ok(())
-        }
-
-        pub fn disown_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
-            let account = ensure_signed(origin)?;
-            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
-
-            if item.owner != Some(account.clone()) {
-                return Err(Error::<T>::WrongAccount.into());
-            }
-
-            if item.flags & TRANSFERABLE == 0 {
-                return Err(Error::<T>::ItemNotTransferable.into());
-            }
-
-            item.owner = None;
-            <ItemState<T>>::insert(&item_id, item);
-            Self::deposit_event(Event::DisownItem {
                 item_id,
                 owner: account,
             });
@@ -186,17 +169,19 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        PublishItem {
+            item_id: ItemId,
+            owner: T::AccountId,
+            parents: Vec<ItemId>,
+        },
         PublishRevision {
             item_id: ItemId,
             owner: T::AccountId,
             revision_id: u32,
+            links: Vec<ItemId>,
             ipfs_hash: IpfsHash,
         },
         RetractItem {
-            item_id: ItemId,
-            owner: T::AccountId,
-        },
-        DisownItem {
             item_id: ItemId,
             owner: T::AccountId,
         },
@@ -215,8 +200,6 @@ pub mod pallet {
         ItemNotRevisionable,
         /// The item is not retractable.
         ItemNotRetractable,
-        /// The item is not transferable.
-        ItemNotTransferable,
         /// Wrong account.
         WrongAccount,
     }
