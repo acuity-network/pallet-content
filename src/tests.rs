@@ -1,113 +1,425 @@
-// This file is part of Substrate.
+//! Tests for referenda template pallet.
 
-// Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+use super::{Error, Event, Nonce, Pallet as Content};
+use crate::{mock::*, IpfsHash, Item, ItemId, RETRACTABLE, RETRACTED, REVISIONABLE};
+use frame_support::{assert_noop, assert_ok};
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+#[test]
+fn publish_item() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE | RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        System::assert_has_event(
+            Event::<Test>::PublishItem {
+                item_id: item_id.clone(),
+                owner: 1,
+                parents: vec![],
+                flags: REVISIONABLE | RETRACTABLE,
+            }
+            .into(),
+        );
+        System::assert_has_event(
+            Event::<Test>::PublishRevision {
+                item_id: item_id.clone(),
+                owner: 1,
+                revision_id: 0,
+                links: vec![],
+                ipfs_hash: IpfsHash::default(),
+            }
+            .into(),
+        );
 
-//! Tests for pallet-dev-mode.
+        let item = Content::<Test>::item(item_id);
 
-use crate::*;
-use frame_support::{assert_ok, derive_impl};
-use sp_core::H256;
-use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage,
-};
-// Reexport crate as its pallet name for construct_runtime.
-use crate as pallet_dev_mode;
-
-type Block = frame_system::mocking::MockBlock<Test>;
-
-// For testing the pallet, we construct a mock runtime.
-frame_support::construct_runtime!(
-    pub enum Test
-    {
-        System: frame_system,
-        Balances: pallet_balances,
-        Example: pallet_dev_mode,
-    }
-);
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type Nonce = u64;
-    type Hash = H256;
-    type RuntimeCall = RuntimeCall;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: REVISIONABLE | RETRACTABLE,
+            })
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::publish_item(
+                RuntimeOrigin::signed(1),
+                Nonce::default(),
+                vec![],
+                REVISIONABLE,
+                vec![],
+                IpfsHash::default()
+            ),
+            Error::<Test>::ItemAlreadyExists
+        );
+    });
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-    type AccountStore = System;
+#[test]
+fn publish_revision() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    let ipfs_hash = IpfsHash([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: REVISIONABLE,
+            })
+        );
+        assert_ok!(Content::<Test>::publish_revision(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+            vec![],
+            ipfs_hash.clone(),
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 1,
+                flags: REVISIONABLE,
+            })
+        );
+        System::assert_has_event(
+            Event::<Test>::PublishRevision {
+                item_id: item_id.clone(),
+                owner: 1,
+                revision_id: 1,
+                links: vec![],
+                ipfs_hash: ipfs_hash.clone(),
+            }
+            .into(),
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::publish_revision(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                vec![],
+                ipfs_hash.clone(),
+            ),
+            Error::<Test>::WrongAccount
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE | RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_ok!(Content::<Test>::retract_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+        ));
+        assert_noop!(
+            Content::<Test>::publish_revision(
+                RuntimeOrigin::signed(1),
+                item_id.clone(),
+                vec![],
+                ipfs_hash.clone(),
+            ),
+            Error::<Test>::ItemRetracted
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            0,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::publish_revision(
+                RuntimeOrigin::signed(1),
+                item_id.clone(),
+                vec![],
+                ipfs_hash.clone(),
+            ),
+            Error::<Test>::ItemNotRevisionable
+        );
+    });
 }
 
-impl Config for Test {
-    // type RuntimeEvent = RuntimeEvent;
+#[test]
+fn retract_item() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTABLE,
+            })
+        );
+        assert_ok!(Content::<Test>::retract_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTED,
+            })
+        );
+        System::assert_has_event(
+            Event::<Test>::RetractItem {
+                item_id: item_id.clone(),
+                owner: 1,
+            }
+            .into(),
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::retract_item(RuntimeOrigin::signed(2), item_id.clone()),
+            Error::<Test>::WrongAccount
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_ok!(Content::<Test>::retract_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+        ));
+        assert_noop!(
+            Content::<Test>::retract_item(RuntimeOrigin::signed(1), item_id.clone()),
+            Error::<Test>::ItemRetracted
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            0,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::retract_item(RuntimeOrigin::signed(1), item_id.clone()),
+            Error::<Test>::ItemNotRetractable
+        );
+    });
 }
 
-// This function basically just builds a genesis storage key/value store according to
-// our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    let t = RuntimeGenesisConfig {
-        // We use default for brevity, but you can configure as desired if needed.
-        system: Default::default(),
-        balances: Default::default(),
-    }
-    .build_storage()
-    .unwrap();
-    t.into()
+#[test]
+fn set_not_revisionable() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE | REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTABLE | REVISIONABLE,
+            })
+        );
+        assert_ok!(Content::<Test>::set_not_revisionable(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTABLE,
+            })
+        );
+        System::assert_has_event(
+            Event::<Test>::SetNotRevsionable {
+                item_id: item_id.clone(),
+                owner: 1,
+            }
+            .into(),
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE | REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::set_not_revisionable(RuntimeOrigin::signed(2), item_id.clone()),
+            Error::<Test>::WrongAccount
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::set_not_revisionable(RuntimeOrigin::signed(1), item_id.clone()),
+            Error::<Test>::ItemNotRevisionable
+        );
+    });
 }
 
-// #[test]
-// fn it_works_for_optional_value() {
-// 	new_test_ext().execute_with(|| {
-// 		assert_eq!(Dummy::<Test>::get(), None);
-
-// 		let val1 = 42;
-// 		assert_ok!(Example::add_dummy(RuntimeOrigin::root(), val1));
-// 		assert_eq!(Dummy::<Test>::get(), Some(vec![val1]));
-
-// 		// Check that accumulate works when we have Some value in Dummy already.
-// 		let val2 = 27;
-// 		assert_ok!(Example::add_dummy(RuntimeOrigin::root(), val2));
-// 		assert_eq!(Dummy::<Test>::get(), Some(vec![val1, val2]));
-// 	});
-// }
-
-// #[test]
-// fn set_dummy_works() {
-// 	new_test_ext().execute_with(|| {
-// 		let test_val = 133;
-// 		assert_ok!(Example::set_bar(RuntimeOrigin::signed(1), test_val.into()));
-// 		assert_eq!(Bar::<Test>::get(1), Some(test_val));
-// 	});
-// }
+#[test]
+fn set_not_retractable() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE | REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTABLE | REVISIONABLE,
+            })
+        );
+        assert_ok!(Content::<Test>::set_not_retractable(
+            RuntimeOrigin::signed(1),
+            item_id.clone(),
+        ));
+        let item = Content::<Test>::item(&item_id);
+        assert!(
+            item == Some(Item {
+                owner: 1,
+                revision_id: 0,
+                flags: REVISIONABLE,
+            })
+        );
+        System::assert_has_event(
+            Event::<Test>::SetNotRetractable {
+                item_id: item_id.clone(),
+                owner: 1,
+            }
+            .into(),
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            RETRACTABLE | REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::set_not_retractable(RuntimeOrigin::signed(2), item_id.clone()),
+            Error::<Test>::WrongAccount
+        );
+    });
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+        assert_noop!(
+            Content::<Test>::set_not_retractable(RuntimeOrigin::signed(1), item_id.clone()),
+            Error::<Test>::ItemNotRetractable
+        );
+    });
+}

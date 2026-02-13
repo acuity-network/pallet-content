@@ -1,53 +1,76 @@
-// Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+//! # Template Pallet
+//!
+//! This is the place where you'd put the documentation of the pallet
 
-use frame_support::dispatch::DispatchResult;
-use frame_system::ensure_signed;
+use frame_support::pallet_prelude::*;
+use frame_system::pallet_prelude::*;
 use sp_io::hashing::blake2_256;
 
-// Re-export pallet items so that they can be accessed from the crate namespace.
-pub use pallet::*;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
+#[cfg(test)]
+mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod weights;
+pub use weights::*;
+
+pub use pallet::*;
+
 const REVISIONABLE: u8 = 1 << 0;
 const RETRACTABLE: u8 = 1 << 1;
-const RETRACTED: u8 = 1 << 5;
+const RETRACTED: u8 = 1 << 2;
 
-/// Enable `dev_mode` for this pallet.
+#[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking, Default)]
+pub struct Nonce([u8; 32]);
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
+    // use frame_support::pallet_prelude::*;
+    // use frame_system::pallet_prelude::*;
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
     pub struct Item<AccountId> {
-        owner: AccountId, // Owner of the item
-        revision_id: u32, // Latest revision_id
-        flags: u8,
+        pub owner: AccountId, // Owner of the item
+        pub revision_id: u32, // Latest revision_id
+        pub flags: u8,
     }
 
-    #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
-    pub struct Nonce([u8; 32]);
+    #[derive(
+        PartialEq,
+        Clone,
+        Debug,
+        TypeInfo,
+        Default,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+    )]
+    pub struct ItemId(pub [u8; 32]);
 
-    #[derive(PartialEq, Clone, Debug, TypeInfo, Default, Encode, Decode, DecodeWithMemTracking)]
-    pub struct ItemId([u8; 32]);
+    #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking, Default)]
+    pub struct IpfsHash(pub [u8; 32]);
 
-    #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking)]
-    pub struct IpfsHash([u8; 32]);
+    // #[pallet::config]
+    // pub trait Config: pallet_balances::Config + frame_system::Config {}
 
     #[pallet::config]
-    pub trait Config: pallet_balances::Config + frame_system::Config {}
+    pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+        type WeightInfo: WeightInfo;
+    }
 
     // Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
     // method.
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
+    // #[pallet::call(weight(<T as Config>::WeightInfo))]
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // No need to define a `call_index` attribute here because of `dev_mode`.
@@ -55,8 +78,8 @@ pub mod pallet {
         pub fn publish_item(
             origin: OriginFor<T>,
             nonce: Nonce,
-            flags: u8,
             parents: Vec<ItemId>,
+            flags: u8,
             links: Vec<ItemId>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
@@ -79,6 +102,7 @@ pub mod pallet {
                 item_id: item_id.clone(),
                 owner: account.clone(),
                 parents,
+                flags,
             });
             Self::deposit_event(Event::PublishRevision {
                 item_id: item_id.clone(),
@@ -154,6 +178,50 @@ pub mod pallet {
 
             Ok(())
         }
+
+        pub fn set_not_revisionable(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.owner != account.clone() {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+
+            if item.flags & REVISIONABLE == 0 {
+                return Err(Error::<T>::ItemNotRevisionable.into());
+            }
+
+            item.flags &= !REVISIONABLE;
+            <ItemState<T>>::insert(&item_id, item);
+            Self::deposit_event(Event::SetNotRevsionable {
+                item_id,
+                owner: account,
+            });
+
+            Ok(())
+        }
+
+        pub fn set_not_retractable(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+            if item.owner != account.clone() {
+                return Err(Error::<T>::WrongAccount.into());
+            }
+
+            if item.flags & RETRACTABLE == 0 {
+                return Err(Error::<T>::ItemNotRetractable.into());
+            }
+
+            item.flags &= !RETRACTABLE;
+            <ItemState<T>>::insert(&item_id, item);
+            Self::deposit_event(Event::SetNotRetractable {
+                item_id,
+                owner: account,
+            });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -169,10 +237,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        // Success,
         PublishItem {
             item_id: ItemId,
             owner: T::AccountId,
             parents: Vec<ItemId>,
+            flags: u8,
         },
         PublishRevision {
             item_id: ItemId,
@@ -185,11 +255,20 @@ pub mod pallet {
             item_id: ItemId,
             owner: T::AccountId,
         },
+        SetNotRevsionable {
+            item_id: ItemId,
+            owner: T::AccountId,
+        },
+        SetNotRetractable {
+            item_id: ItemId,
+            owner: T::AccountId,
+        },
     }
 
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
+        // Error,
         /// The item already exists.
         ItemAlreadyExists,
         /// The item could not be found.
@@ -205,5 +284,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub type ItemState<T: Config> = StorageMap<_, _, ItemId, Item<T::AccountId>, OptionQuery>;
+    #[pallet::getter(fn item)]
+    pub type ItemState<T: Config> =
+        StorageMap<_, Blake2_128Concat, ItemId, Item<T::AccountId>, OptionQuery>;
 }
