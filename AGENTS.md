@@ -10,3 +10,7 @@ commit message.
 - Include important implementation details and any migration impact.
 - Always record which AI model or models were used to produce the commit.
 - Avoid one-line messages unless the change is truly trivial.
+
+## Dependency policy
+
+- Always use the `polkadot-sdk` crate for FRAME/Substrate dependencies in this repository.
