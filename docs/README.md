@@ -13,4 +13,13 @@ integrators.
 - [`lifecycle.md`](./lifecycle.md)
   - Stateful view of allowed flag transitions and errors.
 
+## Dependency Pinning
+
+This project uses `polkadot-sdk` from git tag `polkadot-stable2512-3`.
+
+- Keep FRAME/Substrate dependencies on the same git source/tag across runtime
+  crates.
+- Avoid mixing crates.io and git-sourced `polkadot-sdk` dependencies in one
+  workspace.
+
 The main project documentation remains in [`../README.md`](../README.md).

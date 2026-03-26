@@ -153,6 +153,10 @@ impl pallet_content::Config for Runtime {
 Then add the pallet to the runtime `construct_runtime!` and include it in your
 runtime crate dependencies as usual.
 
+This repository pins FRAME/Substrate dependencies from `polkadot-sdk` via git
+tag `polkadot-stable2512-3`. Keep your runtime on the same source/tag so Cargo
+does not resolve mixed registry/git variants.
+
 ### Additional documentation
 
 For a deeper reference and indexer guidance, see:
