@@ -1,0 +1,19 @@
+# Project-local cargo-audit policy.
+# Keeps CI strict while documenting known upstream advisories.
+
+[advisories]
+ignore = [
+  "RUSTSEC-2022-0061", # parity-wasm (transitive in polkadot-sdk)
+  "RUSTSEC-2024-0370", # proc-macro-error (transitive in polkadot-sdk)
+  "RUSTSEC-2024-0388", # derivative (transitive in polkadot-sdk)
+  "RUSTSEC-2024-0436", # paste (transitive in polkadot-sdk)
+  "RUSTSEC-2026-0012", # keccak unsound opt-in ARM backend (transitive)
+]
+
+[output]
+deny = ["warnings"]
+quiet = false
+
+[yanked]
+enabled = false
+update_index = true
