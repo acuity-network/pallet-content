@@ -6,6 +6,7 @@
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
+use polkadot_sdk::{frame_support, frame_system, sp_io};
 use sp_io::hashing::blake2_256;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -32,8 +33,6 @@ pub struct Nonce([u8; 32]);
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
     use super::*;
-    // use frame_support::pallet_prelude::*;
-    // use frame_system::pallet_prelude::*;
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode)]
     pub struct Item<AccountId> {
@@ -58,11 +57,8 @@ pub mod pallet {
     #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking, Default)]
     pub struct IpfsHash(pub [u8; 32]);
 
-    // #[pallet::config]
-    // pub trait Config: pallet_balances::Config + frame_system::Config {}
-
     #[pallet::config]
-    pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+    pub trait Config: polkadot_sdk::frame_system::Config<RuntimeEvent: From<Event<Self>>> {
         type WeightInfo: WeightInfo;
     }
 

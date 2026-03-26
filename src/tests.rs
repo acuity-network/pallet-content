@@ -6,6 +6,7 @@ use crate::{
     REVISIONABLE,
 };
 use frame_support::{assert_noop, assert_ok};
+use polkadot_sdk::frame_support;
 
 #[test]
 fn publish_item() {
