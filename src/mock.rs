@@ -31,6 +31,8 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
     type WeightInfo = ();
+    type MaxParents = frame_support::traits::ConstU32<64>;
+    type MaxLinks = frame_support::traits::ConstU32<256>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

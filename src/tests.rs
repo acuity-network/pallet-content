@@ -18,16 +18,16 @@ fn publish_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE | RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         System::assert_has_event(
             Event::<Test>::PublishItem {
                 item_id: item_id.clone(),
                 owner: 1,
-                parents: vec![],
+                parents: Default::default(),
                 flags: REVISIONABLE | RETRACTABLE,
             }
             .into(),
@@ -37,7 +37,7 @@ fn publish_item() {
                 item_id: item_id.clone(),
                 owner: 1,
                 revision_id: 0,
-                links: vec![],
+                links: Default::default(),
                 ipfs_hash: IpfsHash::default(),
             }
             .into(),
@@ -57,18 +57,18 @@ fn publish_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
             Content::<Test>::publish_item(
                 RuntimeOrigin::signed(1),
                 Nonce::default(),
-                vec![],
+                Default::default(),
                 REVISIONABLE,
-                vec![],
+                Default::default(),
                 IpfsHash::default()
             ),
             Error::<Test>::ItemAlreadyExists
@@ -90,9 +90,9 @@ fn publish_revision() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         let item = Content::<Test>::item(&item_id);
@@ -106,7 +106,7 @@ fn publish_revision() {
         assert_ok!(Content::<Test>::publish_revision(
             RuntimeOrigin::signed(1),
             item_id.clone(),
-            vec![],
+            Default::default(),
             ipfs_hash.clone(),
         ));
         let item = Content::<Test>::item(&item_id);
@@ -122,7 +122,7 @@ fn publish_revision() {
                 item_id: item_id.clone(),
                 owner: 1,
                 revision_id: 1,
-                links: vec![],
+                links: Default::default(),
                 ipfs_hash: ipfs_hash.clone(),
             }
             .into(),
@@ -132,16 +132,16 @@ fn publish_revision() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(2),
                 item_id.clone(),
-                vec![],
+                Default::default(),
                 ipfs_hash.clone(),
             ),
             Error::<Test>::WrongAccount
@@ -151,9 +151,9 @@ fn publish_revision() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE | RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_ok!(Content::<Test>::retract_item(
@@ -164,7 +164,7 @@ fn publish_revision() {
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id.clone(),
-                vec![],
+                Default::default(),
                 ipfs_hash.clone(),
             ),
             Error::<Test>::ItemRetracted
@@ -174,16 +174,16 @@ fn publish_revision() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             0,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id.clone(),
-                vec![],
+                Default::default(),
                 ipfs_hash.clone(),
             ),
             Error::<Test>::ItemNotRevisionable
@@ -201,9 +201,9 @@ fn retract_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         let item = Content::<Test>::item(&item_id);
@@ -238,9 +238,9 @@ fn retract_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -252,9 +252,9 @@ fn retract_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_ok!(Content::<Test>::retract_item(
@@ -270,9 +270,9 @@ fn retract_item() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             0,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -292,9 +292,9 @@ fn set_not_revisionable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE | REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         let item = Content::<Test>::item(&item_id);
@@ -329,9 +329,9 @@ fn set_not_revisionable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE | REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -343,9 +343,9 @@ fn set_not_revisionable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -365,9 +365,9 @@ fn set_not_retractable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE | REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         let item = Content::<Test>::item(&item_id);
@@ -402,9 +402,9 @@ fn set_not_retractable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             RETRACTABLE | REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -416,9 +416,9 @@ fn set_not_retractable() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -435,9 +435,9 @@ fn reject_invalid_flags() {
             Content::<Test>::publish_item(
                 RuntimeOrigin::signed(1),
                 Nonce::default(),
-                vec![],
+                Default::default(),
                 RETRACTED,
-                vec![],
+                Default::default(),
                 IpfsHash::default()
             ),
             ContentError::<Test>::InvalidFlags
@@ -456,9 +456,9 @@ fn reject_revision_id_overflow() {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
-            vec![],
+            Default::default(),
             REVISIONABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default()
         ));
 
@@ -475,7 +475,7 @@ fn reject_revision_id_overflow() {
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id,
-                vec![],
+                Default::default(),
                 IpfsHash::default(),
             ),
             ContentError::<Test>::RevisionIdOverflow

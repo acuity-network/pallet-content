@@ -22,9 +22,9 @@ mod benchmarks {
         assert_ok!(Pallet::<T>::publish_item(
             frame_system::RawOrigin::Signed(caller.clone()).into(),
             nonce.clone(),
-            vec![],
+            Default::default(),
             flags,
-            vec![],
+            Default::default(),
             IpfsHash::default(),
         ));
         make_item_id::<T>(caller, &nonce)
@@ -39,9 +39,9 @@ mod benchmarks {
         _(
             frame_system::RawOrigin::Signed(caller.clone()),
             nonce.clone(),
-            vec![],
+            Default::default(),
             REVISIONABLE | RETRACTABLE,
-            vec![],
+            Default::default(),
             IpfsHash::default(),
         );
 
@@ -59,7 +59,7 @@ mod benchmarks {
         _(
             frame_system::RawOrigin::Signed(caller.clone()),
             item_id.clone(),
-            vec![],
+            Default::default(),
             IpfsHash::default(),
         );
 

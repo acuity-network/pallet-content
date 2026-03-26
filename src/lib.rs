@@ -70,6 +70,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: polkadot_sdk::frame_system::Config<RuntimeEvent: From<Event<Self>>> {
         type WeightInfo: WeightInfo;
+        type MaxParents: Get<u32>;
+        type MaxLinks: Get<u32>;
     }
 
     // Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
@@ -80,13 +82,13 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::success())]
+        #[pallet::weight(<T as Config>::WeightInfo::publish_item(parents.len() as u32, links.len() as u32))]
         pub fn publish_item(
             origin: OriginFor<T>,
             nonce: Nonce,
-            parents: Vec<ItemId>,
+            parents: BoundedVec<ItemId, T::MaxParents>,
             flags: u8,
-            links: Vec<ItemId>,
+            links: BoundedVec<ItemId, T::MaxLinks>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -127,11 +129,11 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::success())]
+        #[pallet::weight(<T as Config>::WeightInfo::publish_revision(links.len() as u32))]
         pub fn publish_revision(
             origin: OriginFor<T>,
             item_id: ItemId,
-            links: Vec<ItemId>,
+            links: BoundedVec<ItemId, T::MaxLinks>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -170,7 +172,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::success())]
+        #[pallet::weight(<T as Config>::WeightInfo::retract_item())]
         pub fn retract_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
@@ -198,7 +200,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::success())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_not_revisionable())]
         pub fn set_not_revisionable(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
@@ -222,7 +224,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(<T as Config>::WeightInfo::success())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_not_retractable())]
         pub fn set_not_retractable(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
             let account = ensure_signed(origin)?;
             let mut item = <ItemState<T>>::get(&item_id).ok_or(Error::<T>::ItemNotFound)?;
@@ -263,14 +265,14 @@ pub mod pallet {
         PublishItem {
             item_id: ItemId,
             owner: T::AccountId,
-            parents: Vec<ItemId>,
+            parents: BoundedVec<ItemId, T::MaxParents>,
             flags: u8,
         },
         PublishRevision {
             item_id: ItemId,
             owner: T::AccountId,
             revision_id: u32,
-            links: Vec<ItemId>,
+            links: BoundedVec<ItemId, T::MaxLinks>,
             ipfs_hash: IpfsHash,
         },
         RetractItem {
