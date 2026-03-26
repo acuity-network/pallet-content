@@ -1,7 +1,10 @@
 //! Tests for referenda template pallet.
 
 use super::{Error, Event, Nonce, Pallet as Content};
-use crate::{mock::*, IpfsHash, Item, ItemId, RETRACTABLE, RETRACTED, REVISIONABLE};
+use crate::{
+    mock::*, Error as ContentError, IpfsHash, Item, ItemId, ItemState, RETRACTABLE, RETRACTED,
+    REVISIONABLE,
+};
 use frame_support::{assert_noop, assert_ok};
 
 #[test]
@@ -420,6 +423,61 @@ fn set_not_retractable() {
         assert_noop!(
             Content::<Test>::set_not_retractable(RuntimeOrigin::signed(1), item_id.clone()),
             Error::<Test>::ItemNotRetractable
+        );
+    });
+}
+
+#[test]
+fn reject_invalid_flags() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Content::<Test>::publish_item(
+                RuntimeOrigin::signed(1),
+                Nonce::default(),
+                vec![],
+                RETRACTED,
+                vec![],
+                IpfsHash::default()
+            ),
+            ContentError::<Test>::InvalidFlags
+        );
+    });
+}
+
+#[test]
+fn reject_revision_id_overflow() {
+    let item_id = ItemId([
+        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
+        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
+    ]);
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(Content::<Test>::publish_item(
+            RuntimeOrigin::signed(1),
+            Nonce::default(),
+            vec![],
+            REVISIONABLE,
+            vec![],
+            IpfsHash::default()
+        ));
+
+        ItemState::<Test>::insert(
+            item_id.clone(),
+            Item {
+                owner: 1,
+                revision_id: u32::MAX,
+                flags: REVISIONABLE,
+            },
+        );
+
+        assert_noop!(
+            Content::<Test>::publish_revision(
+                RuntimeOrigin::signed(1),
+                item_id,
+                vec![],
+                IpfsHash::default(),
+            ),
+            ContentError::<Test>::RevisionIdOverflow
         );
     });
 }

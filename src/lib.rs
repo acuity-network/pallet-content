@@ -24,6 +24,7 @@ pub use pallet::*;
 const REVISIONABLE: u8 = 1 << 0;
 const RETRACTABLE: u8 = 1 << 1;
 const RETRACTED: u8 = 1 << 2;
+const ALLOWED_FLAGS: u8 = REVISIONABLE | RETRACTABLE;
 
 #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking, Default)]
 pub struct Nonce([u8; 32]);
@@ -84,6 +85,11 @@ pub mod pallet {
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
+
+            if flags & !ALLOWED_FLAGS != 0 {
+                return Err(Error::<T>::InvalidFlags.into());
+            }
+
             // Get item_id for the new item.
             let item_id = Self::get_item_id(account.clone(), nonce);
             // Ensure the item does not already exist.
@@ -137,7 +143,10 @@ pub mod pallet {
                 return Err(Error::<T>::ItemNotRevisionable.into());
             }
 
-            let revision_id = item.revision_id + 1;
+            let revision_id = item
+                .revision_id
+                .checked_add(1)
+                .ok_or(Error::<T>::RevisionIdOverflow)?;
             item.revision_id = revision_id;
 
             <ItemState<T>>::insert(&item_id, item);
@@ -281,6 +290,10 @@ pub mod pallet {
         ItemNotRetractable,
         /// Wrong account.
         WrongAccount,
+        /// Flags contain unsupported bits.
+        InvalidFlags,
+        /// Revision id overflowed.
+        RevisionIdOverflow,
     }
 
     #[pallet::storage]
