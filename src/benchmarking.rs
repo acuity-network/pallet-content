@@ -1,77 +1,117 @@
 use super::*;
 use crate::Pallet;
+use codec::Encode;
 use frame_benchmarking::v2::*;
+use frame_support::assert_ok;
+use sp_io::hashing::blake2_256;
 
 #[benchmarks]
 mod benchmarks {
     use super::*;
 
+    fn make_item_id<T: Config>(account: &T::AccountId, nonce: &Nonce) -> ItemId {
+        let mut item_id = ItemId::default();
+        item_id
+            .0
+            .copy_from_slice(&blake2_256(&[account.encode(), nonce.encode()].concat()));
+        item_id
+    }
+
+    fn publish_base_item<T: Config>(caller: &T::AccountId, nonce: Nonce, flags: u8) -> ItemId {
+        assert_ok!(Pallet::<T>::publish_item(
+            frame_system::RawOrigin::Signed(caller.clone()).into(),
+            nonce.clone(),
+            vec![],
+            flags,
+            vec![],
+            IpfsHash::default(),
+        ));
+        make_item_id::<T>(caller, &nonce)
+    }
+
     #[benchmark]
     pub fn publish_item() {
-        // Setup code
+        let caller: T::AccountId = whitelisted_caller();
+        let nonce = Nonce::default();
 
         #[extrinsic_call]
         _(
-            frame_system::RawOrigin::Root,
-            Nonce::default(),
+            frame_system::RawOrigin::Signed(caller.clone()),
+            nonce.clone(),
             vec![],
-            0,
+            REVISIONABLE | RETRACTABLE,
             vec![],
             IpfsHash::default(),
         );
+
+        let item_id = make_item_id::<T>(&caller, &nonce);
+        assert!(ItemState::<T>::contains_key(item_id));
     }
 
     #[benchmark]
     pub fn publish_revision() {
-        // Setup code
-        let item_id = ItemId([
-            2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80,
-            200, 83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-        ]);
+        let caller: T::AccountId = whitelisted_caller();
+        let nonce = Nonce::default();
+        let item_id = publish_base_item::<T>(&caller, nonce, REVISIONABLE | RETRACTABLE);
 
         #[extrinsic_call]
         _(
-            frame_system::RawOrigin::Root,
-            item_id,
+            frame_system::RawOrigin::Signed(caller.clone()),
+            item_id.clone(),
             vec![],
             IpfsHash::default(),
         );
+
+        let item = ItemState::<T>::get(item_id).expect("item must exist");
+        assert_eq!(item.revision_id, 1);
     }
 
     #[benchmark]
     pub fn retract_item() {
-        // Setup code
-        let item_id = ItemId([
-            2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80,
-            200, 83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-        ]);
+        let caller: T::AccountId = whitelisted_caller();
+        let nonce = Nonce::default();
+        let item_id = publish_base_item::<T>(&caller, nonce, REVISIONABLE | RETRACTABLE);
 
         #[extrinsic_call]
-        _(frame_system::RawOrigin::Root, item_id);
+        _(
+            frame_system::RawOrigin::Signed(caller.clone()),
+            item_id.clone(),
+        );
+
+        let item = ItemState::<T>::get(item_id).expect("item must exist");
+        assert_eq!(item.flags, RETRACTED);
     }
 
     #[benchmark]
     pub fn set_not_revisionable() {
-        // Setup code
-        let item_id = ItemId([
-            2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80,
-            200, 83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-        ]);
+        let caller: T::AccountId = whitelisted_caller();
+        let nonce = Nonce::default();
+        let item_id = publish_base_item::<T>(&caller, nonce, REVISIONABLE | RETRACTABLE);
 
         #[extrinsic_call]
-        _(frame_system::RawOrigin::Root, item_id);
+        _(
+            frame_system::RawOrigin::Signed(caller.clone()),
+            item_id.clone(),
+        );
+
+        let item = ItemState::<T>::get(item_id).expect("item must exist");
+        assert_eq!(item.flags & REVISIONABLE, 0);
     }
 
     #[benchmark]
     pub fn set_not_retractable() {
-        // Setup code
-        let item_id = ItemId([
-            2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80,
-            200, 83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-        ]);
+        let caller: T::AccountId = whitelisted_caller();
+        let nonce = Nonce::default();
+        let item_id = publish_base_item::<T>(&caller, nonce, REVISIONABLE | RETRACTABLE);
 
         #[extrinsic_call]
-        _(frame_system::RawOrigin::Root, item_id);
+        _(
+            frame_system::RawOrigin::Signed(caller.clone()),
+            item_id.clone(),
+        );
+
+        let item = ItemState::<T>::get(item_id).expect("item must exist");
+        assert_eq!(item.flags & RETRACTABLE, 0);
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
