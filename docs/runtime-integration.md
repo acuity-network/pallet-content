@@ -8,7 +8,7 @@ In your runtime `Cargo.toml`:
 
 ```toml
 [dependencies]
-pallet-content = { path = "../pallet-content", default-features = false }
+pallet-content = { version = "0.1.0", default-features = false }
 ```
 
 And enable relevant runtime features (`std` for host tests/dev, otherwise keep
