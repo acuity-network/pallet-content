@@ -1,8 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # Template Pallet
+//! # Content Pallet
 //!
-//! This is the place where you'd put the documentation of the pallet
+//! A lightweight content registry pallet.
+//!
+//! This pallet tracks only control metadata for on-chain content items and emits
+//! structured events for indexing and off-chain processing.
+//! It is designed for use with `acuity-index` (`https://github.com/acuity-network/acuity-index`).
+//!
+//! The pallet provides the following capabilities:
+//! - Publish a new item with an account-derived `ItemId`.
+//! - Publish item revisions.
+//! - Retract an item.
+//! - Disable revisioning or retraction permissions after creation.
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;

@@ -1,0 +1,61 @@
+# Runtime Integration Guide
+
+Use this document to wire `pallet-content` into a Substrate runtime.
+
+## 1. Add dependencies
+
+In your runtime `Cargo.toml`:
+
+```toml
+[dependencies]
+pallet-content = { path = "../pallet-content", default-features = false }
+```
+
+And enable relevant runtime features (`std` for host tests/dev, otherwise keep
+`default-features = false`).
+
+## 2. Add pallet to `construct_runtime!`
+
+```rust
+construct_runtime!(
+    pub enum Runtime {
+        // ...
+        Content: pallet_content,
+    }
+);
+```
+
+## 3. Configure `Config`
+
+```rust
+impl pallet_content::Config for Runtime {
+    type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+}
+```
+
+## 4. Runtime feature wiring
+
+If your runtime conditionally compiles benchmarks:
+
+```rust
+#[cfg(feature = "runtime-benchmarks")]
+type ContentBenchmarking = pallet_content::benchmarking::Pallet<Runtime>;
+```
+
+## 5. Exposed types to indexers
+
+Expose these runtime types as needed:
+
+- `ItemId`
+- `IpfsHash`
+- `Nonce`
+- `Item`
+
+Then import and project pallet events in RPC/indexing layers as required.
+
+## 6. Migrate carefully
+
+- If you change flag semantics, preserve backward-compatible behavior for old
+  revision history in external indexers.
+- Document any external expectations about `parents`, `links`, and `ipfs_hash`
+  because they are emitted only via events, not storage.
