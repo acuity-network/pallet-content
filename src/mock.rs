@@ -7,6 +7,8 @@ use sp_io::TestExternalities;
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 
+pub const ITEM_ID_NAMESPACE: u32 = 1;
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test
@@ -31,6 +33,7 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
     type WeightInfo = ();
+    type ItemIdNamespace = frame_support::traits::ConstU32<ITEM_ID_NAMESPACE>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;

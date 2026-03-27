@@ -9,7 +9,7 @@
 //! It is designed for use with `acuity-index` (`https://github.com/acuity-network/acuity-index`).
 //!
 //! The pallet provides the following capabilities:
-//! - Publish a new item with an account-derived `ItemId`.
+//! - Publish a new item with an account- and namespace-derived `ItemId`.
 //! - Publish item revisions.
 //! - Retract an item.
 //! - Disable revisioning or retraction permissions after creation.
@@ -72,6 +72,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: polkadot_sdk::frame_system::Config<RuntimeEvent: From<Event<Self>>> {
         type WeightInfo: WeightInfo;
+        type ItemIdNamespace: Get<u32>;
         type MaxParents: Get<u32>;
         type MaxLinks: Get<u32>;
         type MaxMentions: Get<u32>;
@@ -265,9 +266,14 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         fn get_item_id(account: T::AccountId, nonce: Nonce) -> ItemId {
             let mut item_id = ItemId::default();
-            item_id
-                .0
-                .copy_from_slice(&blake2_256(&[account.encode(), nonce.encode()].concat()));
+            item_id.0.copy_from_slice(&blake2_256(
+                &[
+                    account.encode(),
+                    nonce.encode(),
+                    T::ItemIdNamespace::get().encode(),
+                ]
+                .concat(),
+            ));
             item_id
         }
     }

@@ -5,15 +5,21 @@ use crate::{
     mock::*, Error as ContentError, IpfsHash, Item, ItemId, ItemState, RETRACTABLE, RETRACTED,
     REVISIONABLE,
 };
+use codec::Encode;
 use frame_support::{assert_noop, assert_ok, BoundedVec};
-use polkadot_sdk::frame_support;
+use polkadot_sdk::{frame_support, sp_io};
+
+fn expected_item_id(account: u64, nonce: Nonce) -> ItemId {
+    let mut item_id = ItemId::default();
+    item_id.0.copy_from_slice(&sp_io::hashing::blake2_256(
+        &[account.encode(), nonce.encode(), ITEM_ID_NAMESPACE.encode()].concat(),
+    ));
+    item_id
+}
 
 #[test]
 fn publish_item() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
         let mentions: BoundedVec<u64, <Test as crate::Config>::MaxMentions> =
             vec![2, 3].try_into().expect("mentions fit in bounds");
@@ -85,10 +91,7 @@ fn publish_item() {
 
 #[test]
 fn publish_revision() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
     let ipfs_hash = IpfsHash([
         2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
         83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
@@ -212,10 +215,7 @@ fn publish_revision() {
 
 #[test]
 fn retract_item() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
@@ -307,10 +307,7 @@ fn retract_item() {
 
 #[test]
 fn set_not_revisionable() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
@@ -383,10 +380,7 @@ fn set_not_revisionable() {
 
 #[test]
 fn set_not_retractable() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
@@ -477,10 +471,7 @@ fn reject_invalid_flags() {
 
 #[test]
 fn reject_revision_id_overflow() {
-    let item_id = ItemId([
-        2, 171, 77, 116, 200, 110, 195, 179, 153, 122, 79, 173, 243, 62, 85, 232, 39, 150, 80, 200,
-        83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
-    ]);
+    let item_id = expected_item_id(1, Nonce::default());
 
     new_test_ext().execute_with(|| {
         assert_ok!(Content::<Test>::publish_item(

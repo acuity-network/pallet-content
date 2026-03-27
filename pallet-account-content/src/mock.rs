@@ -28,6 +28,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_content::Config for Test {
     type WeightInfo = ();
+    type ItemIdNamespace = frame_support::traits::ConstU32<1>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;
