@@ -34,6 +34,7 @@ construct_runtime!(
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type ItemIdNamespace = frame_support::traits::ConstU32<0>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;

@@ -13,6 +13,7 @@ Sets `item_id` as the caller's current profile.
 Fails when:
 
 - the referenced content item does not exist (`ItemNotFound`)
+- the referenced content item has been retracted (`ItemRetracted`)
 - the caller does not own the content item (`WrongAccount`)
 
 Emits:
@@ -32,4 +33,5 @@ Current profile item id for each account.
 ## Errors
 
 - `ItemNotFound`
+- `ItemRetracted`
 - `WrongAccount`

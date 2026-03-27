@@ -7,17 +7,19 @@ This document summarizes the `pallet-content` runtime interface.
 ### `Config`
 
 - `type WeightInfo: WeightInfo`
+- `type ItemIdNamespace: Get<u32>`
 - `type MaxParents: Get<u32>`
 - `type MaxLinks: Get<u32>`
 - `type MaxMentions: Get<u32>`
 
 The runtime must provide bounds for parent item references, linked item references,
-and mentioned accounts in addition to the pallet weight implementation.
+mentioned accounts, and an item-id namespace in addition to the pallet weight
+implementation.
 
 ## Extrinsics
 
-All calls are signed extrinsics. In this pallet implementation they use
-`WeightInfo::success()` for successful execution paths.
+All calls are signed extrinsics and use their corresponding `WeightInfo`
+functions.
 
 ### `publish_item`
 
@@ -130,7 +132,7 @@ pub fn item(item_id: ItemId) -> Option<Item<T::AccountId>>
 
 ## Publicly visible types
 
-- `pub struct Nonce(pub [u8; 32])`
+- `pub struct Nonce([u8; 32])`
 - `pub struct ItemId(pub [u8; 32])`
 - `pub struct IpfsHash(pub [u8; 32])`
 - `pub struct Item<AccountId> { owner, revision_id, flags }`

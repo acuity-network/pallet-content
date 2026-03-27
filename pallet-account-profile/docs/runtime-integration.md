@@ -13,12 +13,14 @@
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type ItemIdNamespace = frame_support::traits::ConstU32<0>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 
 impl pallet_account_profile::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_account_profile::SubstrateWeight<Runtime>;
 }
 ```

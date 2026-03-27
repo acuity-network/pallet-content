@@ -8,6 +8,21 @@ It is intended to be used together with
 `acuity-index` (`https://github.com/acuity-network/acuity-index`) for
 off-chain indexing and query-serving of the emitted content events.
 
+## Workspace pallets
+
+This workspace also includes companion pallets that build on the core content
+registry:
+
+- `pallet-account-content`
+  - account-scoped ordered lists of owned content items
+  - see `pallet-account-content/README.md`
+- `pallet-account-profile`
+  - one profile pointer per account into owned content
+  - see `pallet-account-profile/README.md`
+- `pallet-content-reactions`
+  - account-scoped emoji reactions on item revisions
+  - see `pallet-content-reactions/README.md`
+
 ## Design overview
 
 The pallet intentionally keeps storage compact and stores only immutable control
@@ -33,7 +48,7 @@ through event fields and can be materialized externally by an indexer.
 
 - `ItemId([u8; 32])`
   - Deterministic identifier for an item.
-  - Calculated as `blake2_256(account.encode() || nonce.encode())`.
+  - Calculated as `blake2_256(account.encode() || nonce.encode() || item_id_namespace.encode())`.
 
 - `IpfsHash([u8; 32])`
   - Opaque fixed 32-byte payload reference that indexes content storage
@@ -68,7 +83,8 @@ bits are rejected.
 
 ## Extrinsics
 
-All calls are signed and weight-charged via `WeightInfo::success()`.
+All calls are signed and weight-charged via their corresponding `WeightInfo`
+methods.
 
 - `publish_item(origin, nonce, parents, flags, links, mentions, ipfs_hash)`
   - Creates a new item.
@@ -147,6 +163,7 @@ Add the pallet and configure weight info in your runtime:
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type ItemIdNamespace = frame_support::traits::ConstU32<0>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;

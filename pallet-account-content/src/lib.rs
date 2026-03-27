@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 //! # Account Content Pallet
 //!
@@ -11,6 +12,7 @@
 pub use pallet::*;
 use polkadot_sdk::{frame_support, frame_system};
 
+/// Benchmark definitions for the pallet.
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -19,9 +21,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+/// Weight traits and generated weight implementations.
 pub mod weights;
 pub use weights::*;
 
+/// FRAME pallet implementation.
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -29,21 +33,30 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_content::{ItemId, RETRACTED};
 
+    /// Configuration for the account-content pallet.
     #[pallet::config]
     #[pallet::disable_frame_system_supertrait_check]
     pub trait Config: polkadot_sdk::frame_system::Config + pallet_content::Config {
+        /// Aggregated runtime event type.
         #[allow(deprecated)]
         type RuntimeEvent: From<Event<Self>>
             + IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+        /// Weight implementation for this pallet's dispatchables.
         type WeightInfo: WeightInfo;
+        /// Maximum number of content items one account can index locally.
         type MaxItemsPerAccount: Get<u32>;
     }
 
+    /// Pallet type for account-scoped content lists.
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Adds a content item to the caller's ordered list.
+        ///
+        /// The referenced item must exist in `pallet-content`, must not be
+        /// retracted, and must currently be owned by the caller.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_item())]
         pub fn add_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
@@ -71,6 +84,10 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Removes a content item from the caller's ordered list.
+        ///
+        /// Removal uses swap-with-last semantics so membership checks and
+        /// deletions stay O(1).
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_item())]
         pub fn remove_item(origin: OriginFor<T>, item_id: ItemId) -> DispatchResult {
@@ -107,6 +124,7 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
+        /// Ensures the referenced item exists, is not retracted, and belongs to the account.
         fn ensure_item_owned_by(account: &T::AccountId, item_id: &ItemId) -> Result<(), Error<T>> {
             let item =
                 pallet_content::ItemState::<T>::get(item_id).ok_or(Error::<T>::ItemNotFound)?;
@@ -115,26 +133,32 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Returns whether the supplied account has already added the item.
         pub fn get_item_exists(account: T::AccountId, item_id: ItemId) -> bool {
             Self::get_item_exists_by_account(account, item_id)
         }
 
+        /// Returns the number of items currently indexed by the supplied account.
         pub fn get_item_count(account: T::AccountId) -> u32 {
             Self::get_item_count_by_account(account)
         }
 
+        /// Returns all item ids currently indexed by the supplied account.
         pub fn get_all_items(account: T::AccountId) -> BoundedVec<ItemId, T::MaxItemsPerAccount> {
             Self::get_all_items_by_account(account)
         }
 
+        /// Returns whether the supplied account has already added the item.
         pub fn get_item_exists_by_account(account: T::AccountId, item_id: ItemId) -> bool {
             AccountItemIdIndex::<T>::get(account, item_id) > 0
         }
 
+        /// Returns the current number of stored item ids for the supplied account.
         pub fn get_item_count_by_account(account: T::AccountId) -> u32 {
             u32::try_from(AccountItemIds::<T>::get(account).len()).unwrap_or(u32::MAX)
         }
 
+        /// Returns the caller-facing ordered item list for the supplied account.
         pub fn get_all_items_by_account(
             account: T::AccountId,
         ) -> BoundedVec<ItemId, T::MaxItemsPerAccount> {
@@ -145,16 +169,23 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// An item was added to an account list.
         AddItem {
+            /// Account that owns the list.
             account: T::AccountId,
+            /// Item inserted into the account list.
             item_id: ItemId,
         },
+        /// An item was removed from an account list.
         RemoveItem {
+            /// Account that owns the list.
             account: T::AccountId,
+            /// Item removed from the account list.
             item_id: ItemId,
         },
     }
 
+    /// Errors returned by the account-content pallet.
     #[pallet::error]
     pub enum Error<T> {
         /// The item is already in the account list.
@@ -173,6 +204,7 @@ pub mod pallet {
         IndexOverflow,
     }
 
+    /// Ordered content item ids keyed by account.
     #[pallet::storage]
     #[pallet::getter(fn account_item_ids)]
     pub type AccountItemIds<T: Config> = StorageMap<
@@ -183,6 +215,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// Reverse lookup from `(account, item_id)` to `index + 1` in [`AccountItemIds`].
     #[pallet::storage]
     #[pallet::getter(fn account_item_id_index)]
     pub type AccountItemIdIndex<T: Config> = StorageDoubleMap<

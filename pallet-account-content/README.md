@@ -20,12 +20,14 @@ its core behavior:
 
 - `add_item(origin, item_id)`
   - requires the item to exist in `pallet-content`
+  - requires the item not to be retracted
   - requires the signer to own the item
   - requires the item not already be in the signer's list
   - emits `AddItem`
 
 - `remove_item(origin, item_id)`
   - requires the item already be in the signer's list
+  - requires the item not to be retracted
   - requires the signer to still own the item
   - removes the item with swap-with-last semantics
   - emits `RemoveItem`
@@ -49,12 +51,14 @@ runtime must configure both pallets:
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type ItemIdNamespace = frame_support::traits::ConstU32<0>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
     type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 
 impl pallet_account_content::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_account_content::SubstrateWeight<Runtime>;
     type MaxItemsPerAccount = frame_support::traits::ConstU32<1024>;
 }

@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 //! # Content Reactions Pallet
 //!
@@ -11,6 +12,7 @@
 pub use pallet::*;
 use polkadot_sdk::{frame_support, frame_system};
 
+/// Benchmark definitions for the pallet.
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -19,9 +21,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+/// Weight traits and generated weight implementations.
 pub mod weights;
 pub use weights::*;
 
+/// FRAME pallet implementation.
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -29,6 +33,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_content::{Item, ItemId, RevisionId, RETRACTED};
 
+    /// Unicode scalar value stored as a reaction.
     #[derive(
         Clone,
         Copy,
@@ -46,23 +51,33 @@ pub mod pallet {
     )]
     pub struct Emoji(pub u32);
 
+    /// Reaction set stored for a single `(item_id, revision_id, account)` tuple.
     pub type ReactionsOf<T> = BoundedVec<Emoji, <T as Config>::MaxEmojis>;
 
+    /// Configuration for the content-reactions pallet.
     #[pallet::config]
     #[pallet::disable_frame_system_supertrait_check]
     pub trait Config: polkadot_sdk::frame_system::Config + pallet_content::Config {
+        /// Aggregated runtime event type.
         #[allow(deprecated)]
         type RuntimeEvent: From<Event<Self>>
             + IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+        /// Weight implementation for this pallet's dispatchables.
         type WeightInfo: WeightInfo;
+        /// Maximum number of distinct emoji reactions one account can attach to a revision.
         type MaxEmojis: Get<u32>;
     }
 
+    /// Pallet type for per-account content reactions.
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Adds an emoji reaction for the caller on a specific item revision.
+        ///
+        /// Re-adding the same emoji is a no-op and does not emit a duplicate
+        /// event.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reaction())]
         pub fn add_reaction(
@@ -105,6 +120,10 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Removes an emoji reaction for the caller on a specific item revision.
+        ///
+        /// Removing an emoji that is not present is a no-op and does not emit an
+        /// event.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_reaction())]
         pub fn remove_reaction(
@@ -151,12 +170,14 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
+        /// Validates that the provided value is a non-zero Unicode scalar value.
         fn ensure_valid_emoji(emoji: Emoji) -> Result<(), Error<T>> {
             ensure!(emoji.0 != 0, Error::<T>::InvalidEmoji);
             ensure!(char::from_u32(emoji.0).is_some(), Error::<T>::InvalidEmoji);
             Ok(())
         }
 
+        /// Loads an item and ensures the requested revision exists and is still active.
         fn get_item_and_validate_revision(
             item_id: &ItemId,
             revision_id: RevisionId,
@@ -175,22 +196,35 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// An emoji reaction was added.
         AddReaction {
+            /// Reacted content item.
             item_id: ItemId,
+            /// Revision that received the reaction.
             revision_id: RevisionId,
+            /// Owner of the reacted item.
             item_owner: T::AccountId,
+            /// Account that added the reaction.
             reactor: T::AccountId,
+            /// Emoji that was added.
             emoji: Emoji,
         },
+        /// An emoji reaction was removed.
         RemoveReaction {
+            /// Reacted content item.
             item_id: ItemId,
+            /// Revision that had the reaction removed.
             revision_id: RevisionId,
+            /// Owner of the reacted item.
             item_owner: T::AccountId,
+            /// Account that removed the reaction.
             reactor: T::AccountId,
+            /// Emoji that was removed.
             emoji: Emoji,
         },
     }
 
+    /// Errors returned by the content-reactions pallet.
     #[pallet::error]
     pub enum Error<T> {
         /// The referenced content item could not be found.
@@ -205,6 +239,7 @@ pub mod pallet {
         TooManyEmojis,
     }
 
+    /// Per-account reaction sets keyed by item id, revision id, and reacting account.
     #[pallet::storage]
     pub type ItemAccountReactions<T: Config> = StorageNMap<
         _,

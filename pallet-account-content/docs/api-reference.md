@@ -14,6 +14,7 @@ Fails when:
 
 - the item is already in the caller's list (`ItemAlreadyAdded`)
 - the referenced content item does not exist (`ItemNotFound`)
+- the referenced content item has been retracted (`ItemRetracted`)
 - the caller does not own the content item (`WrongAccount`)
 - the account list is already full (`AccountItemsFull`)
 
@@ -33,6 +34,7 @@ Fails when:
 
 - the item is not in the caller's list (`ItemNotAdded`)
 - the referenced content item no longer exists (`ItemNotFound`)
+- the referenced content item has been retracted (`ItemRetracted`)
 - the caller no longer owns the content item (`WrongAccount`)
 
 Emits:
@@ -72,6 +74,7 @@ item is not present in the account list.
 - `ItemAlreadyAdded`
 - `ItemNotAdded`
 - `ItemNotFound`
+- `ItemRetracted`
 - `WrongAccount`
 - `AccountItemsFull`
 - `IndexOverflow`
