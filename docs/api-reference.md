@@ -7,8 +7,12 @@ This document summarizes the `pallet-content` runtime interface.
 ### `Config`
 
 - `type WeightInfo: WeightInfo`
+- `type MaxParents: Get<u32>`
+- `type MaxLinks: Get<u32>`
+- `type MaxMentions: Get<u32>`
 
-The runtime must provide an implementation of the pallet weight trait.
+The runtime must provide bounds for parent item references, linked item references,
+and mentioned accounts in addition to the pallet weight implementation.
 
 ## Extrinsics
 
@@ -24,6 +28,7 @@ publish_item(
     parents: Vec<ItemId>,
     flags: u8,
     links: Vec<ItemId>,
+    mentions: Vec<AccountId>,
     ipfs_hash: IpfsHash,
 ) -> DispatchResult
 ```
@@ -43,6 +48,7 @@ publish_revision(
     origin: OriginFor<T>,
     item_id: ItemId,
     links: Vec<ItemId>,
+    mentions: Vec<AccountId>,
     ipfs_hash: IpfsHash,
 ) -> DispatchResult
 ```
@@ -132,7 +138,7 @@ pub fn item(item_id: ItemId) -> Option<Item<T::AccountId>>
 ## Event payloads
 
 - `PublishItem { item_id, owner, parents, flags }`
-- `PublishRevision { item_id, owner, revision_id, links, ipfs_hash }`
+- `PublishRevision { item_id, owner, revision_id, links, mentions, ipfs_hash }`
 - `RetractItem { item_id, owner }`
 - `SetNotRevsionable { item_id, owner }`
 - `SetNotRetractable { item_id, owner }`

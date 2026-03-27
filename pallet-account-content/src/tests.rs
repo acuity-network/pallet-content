@@ -11,6 +11,7 @@ fn publish_item(owner: u64, nonce: Nonce) -> ItemId {
         Default::default(),
         REVISIONABLE,
         Default::default(),
+        Default::default(),
         IpfsHash::default(),
     ));
 

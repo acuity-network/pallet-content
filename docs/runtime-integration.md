@@ -34,6 +34,9 @@ construct_runtime!(
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type MaxParents = frame_support::traits::ConstU32<64>;
+    type MaxLinks = frame_support::traits::ConstU32<256>;
+    type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 ```
 
@@ -61,5 +64,5 @@ Then import and project pallet events in RPC/indexing layers as required.
 
 - If you change flag semantics, preserve backward-compatible behavior for old
   revision history in external indexers.
-- Document any external expectations about `parents`, `links`, and `ipfs_hash`
+- Document any external expectations about `parents`, `links`, `mentions`, and `ipfs_hash`
   because they are emitted only via events, not storage.

@@ -70,19 +70,19 @@ bits are rejected.
 
 All calls are signed and weight-charged via `WeightInfo::success()`.
 
-- `publish_item(origin, nonce, parents, flags, links, ipfs_hash)`
+- `publish_item(origin, nonce, parents, flags, links, mentions, ipfs_hash)`
   - Creates a new item.
   - Validates `flags`.
   - Fails if the derived `ItemId` already exists.
   - Stores the item and emits:
     - `PublishItem { item_id, owner, parents, flags }`
-    - `PublishRevision { item_id, owner, revision_id: 0, links, ipfs_hash }`
+    - `PublishRevision { item_id, owner, revision_id: 0, links, mentions, ipfs_hash }`
 
-- `publish_revision(origin, item_id, links, ipfs_hash)`
+- `publish_revision(origin, item_id, links, mentions, ipfs_hash)`
   - Validates existence and ownership.
   - Fails if item is retracted or not revisionable.
   - Increments `revision_id` and emits:
-    - `PublishRevision { item_id, owner, revision_id, links, ipfs_hash }`
+    - `PublishRevision { item_id, owner, revision_id, links, mentions, ipfs_hash }`
 
 - `retract_item(origin, item_id)`
   - Marks item as retracted.
@@ -137,7 +137,7 @@ Recommended index behavior:
 - On state-change events (`RetractItem`, `SetNotRevsionable`, `SetNotRetractable`),
   update indexing permissions and lifecycle metadata.
 
-`parents`, `links`, and `ipfs_hash` are not persisted in pallet storage, so they
+`parents`, `links`, `mentions`, and `ipfs_hash` are not persisted in pallet storage, so they
 must be indexed from events.
 
 ## Runtime integration
@@ -147,6 +147,9 @@ Add the pallet and configure weight info in your runtime:
 ```rust
 impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
+    type MaxParents = frame_support::traits::ConstU32<64>;
+    type MaxLinks = frame_support::traits::ConstU32<256>;
+    type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 ```
 

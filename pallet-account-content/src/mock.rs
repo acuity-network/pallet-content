@@ -30,6 +30,7 @@ impl pallet_content::Config for Test {
     type WeightInfo = ();
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
+    type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 
 impl Config for Test {

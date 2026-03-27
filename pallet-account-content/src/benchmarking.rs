@@ -20,6 +20,7 @@ mod benchmarks {
             Default::default(),
             REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default(),
         ));
 

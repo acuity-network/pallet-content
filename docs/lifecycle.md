@@ -3,7 +3,7 @@
 This document summarizes lifecycle transitions for an item as managed by
 `pallet-content`.
 
-The actual payload fields (`parents`, `links`, `ipfs_hash`) are emitted in events and
+The actual payload fields (`parents`, `links`, `mentions`, `ipfs_hash`) are emitted in events and
 indexed off-chain. This diagram focuses on on-chain control state.
 
 ## Core state bits

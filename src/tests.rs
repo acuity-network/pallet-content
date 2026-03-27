@@ -5,7 +5,7 @@ use crate::{
     mock::*, Error as ContentError, IpfsHash, Item, ItemId, ItemState, RETRACTABLE, RETRACTED,
     REVISIONABLE,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, BoundedVec};
 use polkadot_sdk::frame_support;
 
 #[test]
@@ -15,12 +15,16 @@ fn publish_item() {
         83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
     ]);
     new_test_ext().execute_with(|| {
+        let mentions: BoundedVec<u64, <Test as crate::Config>::MaxMentions> =
+            vec![2, 3].try_into().expect("mentions fit in bounds");
+
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
             Default::default(),
             REVISIONABLE | RETRACTABLE,
             Default::default(),
+            mentions.clone(),
             IpfsHash::default()
         ));
         System::assert_has_event(
@@ -38,6 +42,7 @@ fn publish_item() {
                 owner: 1,
                 revision_id: 0,
                 links: Default::default(),
+                mentions,
                 ipfs_hash: IpfsHash::default(),
             }
             .into(),
@@ -60,6 +65,7 @@ fn publish_item() {
             Default::default(),
             REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -68,6 +74,7 @@ fn publish_item() {
                 Nonce::default(),
                 Default::default(),
                 REVISIONABLE,
+                Default::default(),
                 Default::default(),
                 IpfsHash::default()
             ),
@@ -87,11 +94,15 @@ fn publish_revision() {
         83, 158, 166, 126, 5, 60, 2, 220, 44, 253, 243, 52,
     ]);
     new_test_ext().execute_with(|| {
+        let mentions: BoundedVec<u64, <Test as crate::Config>::MaxMentions> =
+            vec![2].try_into().expect("mentions fit in bounds");
+
         assert_ok!(Content::<Test>::publish_item(
             RuntimeOrigin::signed(1),
             Nonce::default(),
             Default::default(),
             REVISIONABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -107,6 +118,7 @@ fn publish_revision() {
             RuntimeOrigin::signed(1),
             item_id.clone(),
             Default::default(),
+            mentions.clone(),
             ipfs_hash.clone(),
         ));
         let item = Content::<Test>::item(&item_id);
@@ -123,6 +135,7 @@ fn publish_revision() {
                 owner: 1,
                 revision_id: 1,
                 links: Default::default(),
+                mentions,
                 ipfs_hash: ipfs_hash.clone(),
             }
             .into(),
@@ -135,12 +148,14 @@ fn publish_revision() {
             Default::default(),
             REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(2),
                 item_id.clone(),
+                Default::default(),
                 Default::default(),
                 ipfs_hash.clone(),
             ),
@@ -154,6 +169,7 @@ fn publish_revision() {
             Default::default(),
             REVISIONABLE | RETRACTABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_ok!(Content::<Test>::retract_item(
@@ -164,6 +180,7 @@ fn publish_revision() {
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id.clone(),
+                Default::default(),
                 Default::default(),
                 ipfs_hash.clone(),
             ),
@@ -177,12 +194,14 @@ fn publish_revision() {
             Default::default(),
             0,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id.clone(),
+                Default::default(),
                 Default::default(),
                 ipfs_hash.clone(),
             ),
@@ -203,6 +222,7 @@ fn retract_item() {
             Nonce::default(),
             Default::default(),
             RETRACTABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -241,6 +261,7 @@ fn retract_item() {
             Default::default(),
             RETRACTABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -254,6 +275,7 @@ fn retract_item() {
             Nonce::default(),
             Default::default(),
             RETRACTABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -272,6 +294,7 @@ fn retract_item() {
             Nonce::default(),
             Default::default(),
             0,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -294,6 +317,7 @@ fn set_not_revisionable() {
             Nonce::default(),
             Default::default(),
             RETRACTABLE | REVISIONABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -332,6 +356,7 @@ fn set_not_revisionable() {
             Default::default(),
             RETRACTABLE | REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -345,6 +370,7 @@ fn set_not_revisionable() {
             Nonce::default(),
             Default::default(),
             RETRACTABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -367,6 +393,7 @@ fn set_not_retractable() {
             Nonce::default(),
             Default::default(),
             RETRACTABLE | REVISIONABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -405,6 +432,7 @@ fn set_not_retractable() {
             Default::default(),
             RETRACTABLE | REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
         assert_noop!(
@@ -418,6 +446,7 @@ fn set_not_retractable() {
             Nonce::default(),
             Default::default(),
             REVISIONABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default()
         ));
@@ -437,6 +466,7 @@ fn reject_invalid_flags() {
                 Nonce::default(),
                 Default::default(),
                 RETRACTED,
+                Default::default(),
                 Default::default(),
                 IpfsHash::default()
             ),
@@ -459,6 +489,7 @@ fn reject_revision_id_overflow() {
             Default::default(),
             REVISIONABLE,
             Default::default(),
+            Default::default(),
             IpfsHash::default()
         ));
 
@@ -475,6 +506,7 @@ fn reject_revision_id_overflow() {
             Content::<Test>::publish_revision(
                 RuntimeOrigin::signed(1),
                 item_id,
+                Default::default(),
                 Default::default(),
                 IpfsHash::default(),
             ),

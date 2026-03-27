@@ -51,6 +51,7 @@ impl pallet_content::Config for Runtime {
     type WeightInfo = pallet_content::SubstrateWeight<Runtime>;
     type MaxParents = frame_support::traits::ConstU32<64>;
     type MaxLinks = frame_support::traits::ConstU32<256>;
+    type MaxMentions = frame_support::traits::ConstU32<256>;
 }
 
 impl pallet_account_content::Config for Runtime {

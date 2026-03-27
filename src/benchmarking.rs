@@ -25,6 +25,7 @@ mod benchmarks {
             Default::default(),
             flags,
             Default::default(),
+            Default::default(),
             IpfsHash::default(),
         ));
         make_item_id::<T>(caller, &nonce)
@@ -41,6 +42,7 @@ mod benchmarks {
             nonce.clone(),
             Default::default(),
             REVISIONABLE | RETRACTABLE,
+            Default::default(),
             Default::default(),
             IpfsHash::default(),
         );
@@ -59,6 +61,7 @@ mod benchmarks {
         _(
             frame_system::RawOrigin::Signed(caller.clone()),
             item_id.clone(),
+            Default::default(),
             Default::default(),
             IpfsHash::default(),
         );

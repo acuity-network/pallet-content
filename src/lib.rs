@@ -72,6 +72,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
         type MaxParents: Get<u32>;
         type MaxLinks: Get<u32>;
+        type MaxMentions: Get<u32>;
     }
 
     // Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
@@ -82,13 +83,18 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::publish_item(parents.len() as u32, links.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::publish_item(
+            parents.len() as u32,
+            links.len() as u32,
+            mentions.len() as u32,
+        ))]
         pub fn publish_item(
             origin: OriginFor<T>,
             nonce: Nonce,
             parents: BoundedVec<ItemId, T::MaxParents>,
             flags: u8,
             links: BoundedVec<ItemId, T::MaxLinks>,
+            mentions: BoundedVec<T::AccountId, T::MaxMentions>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -122,6 +128,7 @@ pub mod pallet {
                 owner: account,
                 revision_id: 0,
                 links,
+                mentions,
                 ipfs_hash,
             });
 
@@ -129,11 +136,15 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::publish_revision(links.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::publish_revision(
+            links.len() as u32,
+            mentions.len() as u32,
+        ))]
         pub fn publish_revision(
             origin: OriginFor<T>,
             item_id: ItemId,
             links: BoundedVec<ItemId, T::MaxLinks>,
+            mentions: BoundedVec<T::AccountId, T::MaxMentions>,
             ipfs_hash: IpfsHash,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
@@ -165,6 +176,7 @@ pub mod pallet {
                 owner: account,
                 revision_id,
                 links,
+                mentions,
                 ipfs_hash,
             });
 
@@ -273,6 +285,7 @@ pub mod pallet {
             owner: T::AccountId,
             revision_id: u32,
             links: BoundedVec<ItemId, T::MaxLinks>,
+            mentions: BoundedVec<T::AccountId, T::MaxMentions>,
             ipfs_hash: IpfsHash,
         },
         RetractItem {
