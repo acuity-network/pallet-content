@@ -214,6 +214,22 @@ fn publish_revision() {
 }
 
 #[test]
+fn publish_revision_rejects_missing_item() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Content::<Test>::publish_revision(
+                RuntimeOrigin::signed(1),
+                ItemId([7; 32]),
+                Default::default(),
+                Default::default(),
+                IpfsHash::default(),
+            ),
+            Error::<Test>::ItemNotFound
+        );
+    });
+}
+
+#[test]
 fn retract_item() {
     let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
@@ -306,6 +322,16 @@ fn retract_item() {
 }
 
 #[test]
+fn retract_item_rejects_missing_item() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Content::<Test>::retract_item(RuntimeOrigin::signed(1), ItemId([7; 32])),
+            Error::<Test>::ItemNotFound
+        );
+    });
+}
+
+#[test]
 fn set_not_revisionable() {
     let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
@@ -379,6 +405,16 @@ fn set_not_revisionable() {
 }
 
 #[test]
+fn set_not_revisionable_rejects_missing_item() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Content::<Test>::set_not_revisionable(RuntimeOrigin::signed(1), ItemId([7; 32])),
+            Error::<Test>::ItemNotFound
+        );
+    });
+}
+
+#[test]
 fn set_not_retractable() {
     let item_id = expected_item_id(1, Nonce::default());
     new_test_ext().execute_with(|| {
@@ -447,6 +483,16 @@ fn set_not_retractable() {
         assert_noop!(
             Content::<Test>::set_not_retractable(RuntimeOrigin::signed(1), item_id.clone()),
             Error::<Test>::ItemNotRetractable
+        );
+    });
+}
+
+#[test]
+fn set_not_retractable_rejects_missing_item() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Content::<Test>::set_not_retractable(RuntimeOrigin::signed(1), ItemId([7; 32])),
+            Error::<Test>::ItemNotFound
         );
     });
 }

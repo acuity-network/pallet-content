@@ -153,6 +153,21 @@ fn add_reaction_rejects_missing_item() {
 }
 
 #[test]
+fn remove_reaction_rejects_missing_item() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            ContentReactions::<Test>::remove_reaction(
+                RuntimeOrigin::signed(1),
+                ItemId([7; 32]),
+                INITIAL_REVISION_ID,
+                GRINNING_FACE,
+            ),
+            Error::<Test>::ItemNotFound
+        );
+    });
+}
+
+#[test]
 fn reactions_reject_retracted_item() {
     new_test_ext().execute_with(|| {
         let item_id = ItemId([9; 32]);
@@ -212,6 +227,41 @@ fn add_reaction_rejects_invalid_emoji_values() {
         );
         assert_noop!(
             ContentReactions::<Test>::add_reaction(
+                RuntimeOrigin::signed(2),
+                item_id,
+                INITIAL_REVISION_ID,
+                Emoji(0x110000),
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+    });
+}
+
+#[test]
+fn remove_reaction_rejects_invalid_emoji_values() {
+    new_test_ext().execute_with(|| {
+        let item_id = insert_owned_item(1, 1);
+
+        assert_noop!(
+            ContentReactions::<Test>::remove_reaction(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                INITIAL_REVISION_ID,
+                Emoji(0)
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+        assert_noop!(
+            ContentReactions::<Test>::remove_reaction(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                INITIAL_REVISION_ID,
+                Emoji(0xD800),
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+        assert_noop!(
+            ContentReactions::<Test>::remove_reaction(
                 RuntimeOrigin::signed(2),
                 item_id,
                 INITIAL_REVISION_ID,
@@ -326,6 +376,37 @@ fn remove_reaction_is_noop_when_emoji_missing() {
                 .expect("reaction entry must exist")
                 .into_inner(),
             vec![GRINNING_FACE]
+        );
+
+        let remove_events = System::events()
+            .into_iter()
+            .filter(|record| {
+                matches!(
+                    record.event,
+                    RuntimeEvent::ContentReactions(Event::RemoveReaction { .. })
+                )
+            })
+            .count();
+
+        assert_eq!(remove_events, 0);
+    });
+}
+
+#[test]
+fn remove_reaction_is_noop_without_existing_reaction_entry() {
+    new_test_ext().execute_with(|| {
+        let item_id = insert_owned_item(1, 1);
+
+        assert_ok!(ContentReactions::<Test>::remove_reaction(
+            RuntimeOrigin::signed(2),
+            item_id.clone(),
+            INITIAL_REVISION_ID,
+            GRINNING_FACE,
+        ));
+
+        assert_eq!(
+            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2)),
+            None
         );
 
         let remove_events = System::events()

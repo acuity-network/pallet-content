@@ -198,6 +198,39 @@ fn remove_item_swaps_last_item_and_updates_indexes() {
 }
 
 #[test]
+fn remove_item_clears_single_entry_membership() {
+    new_test_ext().execute_with(|| {
+        let item_id = publish_item(1, Nonce::default());
+
+        assert_ok!(AccountContent::<Test>::add_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone()
+        ));
+        assert_ok!(AccountContent::<Test>::remove_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone()
+        ));
+
+        assert_eq!(
+            AccountContent::<Test>::get_item_exists(1, item_id.clone()),
+            false
+        );
+        assert_eq!(AccountContent::<Test>::get_item_count(1), 0);
+        assert!(AccountContent::<Test>::get_all_items(1).is_empty());
+        assert_eq!(AccountItemIdIndex::<Test>::get(1, item_id.clone()), 0);
+        assert!(AccountItemIds::<Test>::get(1).is_empty());
+
+        System::assert_has_event(
+            Event::<Test>::RemoveItem {
+                account: 1,
+                item_id,
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
 fn remove_item_rejects_missing_membership() {
     new_test_ext().execute_with(|| {
         let item_id = publish_item(1, Nonce::default());
@@ -205,6 +238,24 @@ fn remove_item_rejects_missing_membership() {
         assert_noop!(
             AccountContent::<Test>::remove_item(RuntimeOrigin::signed(1), item_id),
             Error::<Test>::ItemNotAdded
+        );
+    });
+}
+
+#[test]
+fn remove_item_rejects_missing_content_item() {
+    new_test_ext().execute_with(|| {
+        let item_id = publish_item(1, Nonce::default());
+        assert_ok!(AccountContent::<Test>::add_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone()
+        ));
+
+        pallet_content::ItemState::<Test>::remove(item_id.clone());
+
+        assert_noop!(
+            AccountContent::<Test>::remove_item(RuntimeOrigin::signed(1), item_id),
+            Error::<Test>::ItemNotFound
         );
     });
 }
