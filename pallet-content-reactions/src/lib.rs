@@ -5,7 +5,8 @@
 //! A lightweight account-scoped emoji reaction pallet for `pallet-content`.
 //!
 //! Each account can associate a bounded set of Unicode scalar values with any
-//! content `ItemId`. Reactions are stored per `(item_id, account)`.
+//! content `ItemId` revision. Reactions are stored per
+//! `(item_id, revision_id, account)`.
 
 pub use pallet::*;
 use polkadot_sdk::{frame_support, frame_system};
@@ -26,7 +27,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use pallet_content::ItemId;
+    use pallet_content::{Item, ItemId, RevisionId};
 
     #[derive(
         Clone,
@@ -64,16 +65,20 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reaction())]
-        pub fn add_reaction(origin: OriginFor<T>, item_id: ItemId, emoji: Emoji) -> DispatchResult {
+        pub fn add_reaction(
+            origin: OriginFor<T>,
+            item_id: ItemId,
+            revision_id: RevisionId,
+            emoji: Emoji,
+        ) -> DispatchResult {
             let reactor = ensure_signed(origin)?;
 
             Self::ensure_valid_emoji(emoji)?;
-            let item_owner = Self::get_item_owner(&item_id)?;
+            let item_owner = Self::get_item_and_validate_revision(&item_id, revision_id)?.owner;
 
             let mut added = false;
             ItemAccountReactions::<T>::try_mutate_exists(
-                &item_id,
-                &reactor,
+                (&item_id, &revision_id, &reactor),
                 |maybe_reactions| -> DispatchResult {
                     let reactions = maybe_reactions.get_or_insert_with(BoundedVec::default);
                     if reactions.contains(&emoji) {
@@ -90,6 +95,7 @@ pub mod pallet {
             if added {
                 Self::deposit_event(Event::AddReaction {
                     item_id,
+                    revision_id,
                     item_owner,
                     reactor,
                     emoji,
@@ -104,31 +110,36 @@ pub mod pallet {
         pub fn remove_reaction(
             origin: OriginFor<T>,
             item_id: ItemId,
+            revision_id: RevisionId,
             emoji: Emoji,
         ) -> DispatchResult {
             let reactor = ensure_signed(origin)?;
 
             Self::ensure_valid_emoji(emoji)?;
-            let item_owner = Self::get_item_owner(&item_id)?;
+            let item_owner = Self::get_item_and_validate_revision(&item_id, revision_id)?.owner;
 
             let mut removed = false;
-            ItemAccountReactions::<T>::mutate_exists(&item_id, &reactor, |maybe_reactions| {
-                let Some(reactions) = maybe_reactions.as_mut() else {
-                    return;
-                };
+            ItemAccountReactions::<T>::mutate_exists(
+                (&item_id, &revision_id, &reactor),
+                |maybe_reactions| {
+                    let Some(reactions) = maybe_reactions.as_mut() else {
+                        return;
+                    };
 
-                if let Some(index) = reactions.iter().position(|stored| stored == &emoji) {
-                    reactions.remove(index);
-                    removed = true;
-                    if reactions.is_empty() {
-                        *maybe_reactions = None;
+                    if let Some(index) = reactions.iter().position(|stored| stored == &emoji) {
+                        reactions.remove(index);
+                        removed = true;
+                        if reactions.is_empty() {
+                            *maybe_reactions = None;
+                        }
                     }
-                }
-            });
+                },
+            );
 
             if removed {
                 Self::deposit_event(Event::RemoveReaction {
                     item_id,
+                    revision_id,
                     item_owner,
                     reactor,
                     emoji,
@@ -146,10 +157,17 @@ pub mod pallet {
             Ok(())
         }
 
-        fn get_item_owner(item_id: &ItemId) -> Result<T::AccountId, Error<T>> {
+        fn get_item_and_validate_revision(
+            item_id: &ItemId,
+            revision_id: RevisionId,
+        ) -> Result<Item<T::AccountId>, Error<T>> {
             let item =
                 pallet_content::ItemState::<T>::get(item_id).ok_or(Error::<T>::ItemNotFound)?;
-            Ok(item.owner)
+            ensure!(
+                revision_id <= item.revision_id,
+                Error::<T>::RevisionNotFound
+            );
+            Ok(item)
         }
     }
 
@@ -158,12 +176,14 @@ pub mod pallet {
     pub enum Event<T: Config> {
         AddReaction {
             item_id: ItemId,
+            revision_id: RevisionId,
             item_owner: T::AccountId,
             reactor: T::AccountId,
             emoji: Emoji,
         },
         RemoveReaction {
             item_id: ItemId,
+            revision_id: RevisionId,
             item_owner: T::AccountId,
             reactor: T::AccountId,
             emoji: Emoji,
@@ -174,6 +194,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// The referenced content item could not be found.
         ItemNotFound,
+        /// The referenced revision could not be found for the item.
+        RevisionNotFound,
         /// The provided emoji value is not a valid non-zero Unicode scalar value.
         InvalidEmoji,
         /// The account has reached the maximum number of emoji reactions for the item.
@@ -181,12 +203,13 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub type ItemAccountReactions<T: Config> = StorageDoubleMap<
+    pub type ItemAccountReactions<T: Config> = StorageNMap<
         _,
-        Blake2_128Concat,
-        ItemId,
-        Blake2_128Concat,
-        T::AccountId,
+        (
+            NMapKey<Blake2_128Concat, ItemId>,
+            NMapKey<Blake2_128Concat, RevisionId>,
+            NMapKey<Blake2_128Concat, T::AccountId>,
+        ),
         ReactionsOf<T>,
         OptionQuery,
     >;

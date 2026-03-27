@@ -46,8 +46,8 @@ pub mod pallet {
 
     #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, MaxEncodedLen)]
     pub struct Item<AccountId> {
-        pub owner: AccountId, // Owner of the item
-        pub revision_id: u32, // Latest revision_id
+        pub owner: AccountId,        // Owner of the item
+        pub revision_id: RevisionId, // Latest revision_id
         pub flags: u8,
     }
 
@@ -66,6 +66,8 @@ pub mod pallet {
 
     #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo, DecodeWithMemTracking, Default)]
     pub struct IpfsHash(pub [u8; 32]);
+
+    pub type RevisionId = u32;
 
     #[pallet::config]
     pub trait Config: polkadot_sdk::frame_system::Config<RuntimeEvent: From<Event<Self>>> {
@@ -283,7 +285,7 @@ pub mod pallet {
         PublishRevision {
             item_id: ItemId,
             owner: T::AccountId,
-            revision_id: u32,
+            revision_id: RevisionId,
             links: BoundedVec<ItemId, T::MaxLinks>,
             mentions: BoundedVec<T::AccountId, T::MaxMentions>,
             ipfs_hash: IpfsHash,
