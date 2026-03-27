@@ -10,6 +10,18 @@ use sp_io::hashing::blake2_256;
 mod benchmarks {
     use super::*;
 
+    fn filled_bounded_vec<Item, Max>(item: Item) -> BoundedVec<Item, Max>
+    where
+        Item: Clone,
+        Max: Get<u32>,
+    {
+        let mut values = BoundedVec::<Item, Max>::default();
+        for _ in 0..Max::get() {
+            assert!(values.try_push(item.clone()).is_ok());
+        }
+        values
+    }
+
     fn make_item_id<T: Config>(account: &T::AccountId, nonce: &Nonce) -> ItemId {
         let mut item_id = ItemId::default();
         item_id.0.copy_from_slice(&blake2_256(
@@ -40,15 +52,18 @@ mod benchmarks {
     pub fn publish_item() {
         let caller: T::AccountId = whitelisted_caller();
         let nonce = Nonce::default();
+        let parents = filled_bounded_vec::<ItemId, T::MaxParents>(ItemId::default());
+        let links = filled_bounded_vec::<ItemId, T::MaxLinks>(ItemId::default());
+        let mentions = filled_bounded_vec::<T::AccountId, T::MaxMentions>(caller.clone());
 
         #[extrinsic_call]
         _(
             frame_system::RawOrigin::Signed(caller.clone()),
             nonce.clone(),
-            Default::default(),
+            parents.clone(),
             REVISIONABLE | RETRACTABLE,
-            Default::default(),
-            Default::default(),
+            links.clone(),
+            mentions.clone(),
             IpfsHash::default(),
         );
 
@@ -61,13 +76,15 @@ mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let nonce = Nonce::default();
         let item_id = publish_base_item::<T>(&caller, nonce, REVISIONABLE | RETRACTABLE);
+        let links = filled_bounded_vec::<ItemId, T::MaxLinks>(ItemId::default());
+        let mentions = filled_bounded_vec::<T::AccountId, T::MaxMentions>(caller.clone());
 
         #[extrinsic_call]
         _(
             frame_system::RawOrigin::Signed(caller.clone()),
             item_id.clone(),
-            Default::default(),
-            Default::default(),
+            links.clone(),
+            mentions.clone(),
             IpfsHash::default(),
         );
 

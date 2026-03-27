@@ -15,13 +15,13 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn add_reaction() -> Weight {
-		Weight::from_parts(19_000_000, 0)
+		Weight::from_parts(23_000_000, 5_400)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
 	fn remove_reaction() -> Weight {
-		Weight::from_parts(19_000_000, 0)
+		Weight::from_parts(22_000_000, 5_400)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -29,13 +29,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 impl WeightInfo for () {
 	fn add_reaction() -> Weight {
-		Weight::from_parts(19_000_000, 0)
+		Weight::from_parts(23_000_000, 5_400)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 
 	fn remove_reaction() -> Weight {
-		Weight::from_parts(19_000_000, 0)
+		Weight::from_parts(22_000_000, 5_400)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
