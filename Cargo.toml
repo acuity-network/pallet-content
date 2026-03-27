@@ -16,7 +16,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [workspace]
-members = [".", "pallet-account-content"]
+members = [".", "pallet-account-content", "pallet-account-profile"]
 resolver = "2"
 
 [workspace.dependencies]

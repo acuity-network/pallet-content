@@ -1,0 +1,42 @@
+[package]
+name = "pallet-account-profile"
+version = "0.1.0"
+edition = "2021"
+license = "MIT-0"
+description = "Account-scoped profile content pallet"
+readme = "README.md"
+
+[lints]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { workspace = true }
+polkadot-sdk = { workspace = true }
+pallet-content = { path = "..", default-features = false }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	"polkadot-sdk/runtime-benchmarks",
+	"pallet-content/runtime-benchmarks",
+]
+std = [
+	"codec/std",
+	"log/std",
+	"pallet-content/std",
+	"polkadot-sdk/std",
+	"polkadot-sdk/frame-benchmarking",
+	"polkadot-sdk/frame-support",
+	"polkadot-sdk/frame-system",
+	"polkadot-sdk/pallet-balances",
+	"polkadot-sdk/sp-io",
+	"scale-info/std",
+]
+try-runtime = [
+	"polkadot-sdk/try-runtime",
+	"pallet-content/try-runtime",
+]
