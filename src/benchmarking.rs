@@ -12,9 +12,14 @@ mod benchmarks {
 
     fn make_item_id<T: Config>(account: &T::AccountId, nonce: &Nonce) -> ItemId {
         let mut item_id = ItemId::default();
-        item_id
-            .0
-            .copy_from_slice(&blake2_256(&[account.encode(), nonce.encode()].concat()));
+        item_id.0.copy_from_slice(&blake2_256(
+            &[
+                account.encode(),
+                nonce.encode(),
+                T::ItemIdNamespace::get().encode(),
+            ]
+            .concat(),
+        ));
         item_id
     }
 

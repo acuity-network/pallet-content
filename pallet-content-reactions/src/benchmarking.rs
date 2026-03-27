@@ -3,6 +3,7 @@ use crate::Pallet;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
+use frame_support::traits::Get;
 use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_io};
 use sp_io::hashing::blake2_256;
 
@@ -27,9 +28,14 @@ mod benchmarks {
         ));
 
         let mut item_id = ItemId::default();
-        item_id
-            .0
-            .copy_from_slice(&blake2_256(&[caller.encode(), nonce.encode()].concat()));
+        item_id.0.copy_from_slice(&blake2_256(
+            &[
+                caller.encode(),
+                nonce.encode(),
+                <T as pallet_content::Config>::ItemIdNamespace::get().encode(),
+            ]
+            .concat(),
+        ));
         item_id
     }
 
