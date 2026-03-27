@@ -32,9 +32,9 @@ pub use weights::*;
 
 pub use pallet::*;
 
-const REVISIONABLE: u8 = 1 << 0;
-const RETRACTABLE: u8 = 1 << 1;
-const RETRACTED: u8 = 1 << 2;
+pub const REVISIONABLE: u8 = 1 << 0;
+pub const RETRACTABLE: u8 = 1 << 1;
+pub const RETRACTED: u8 = 1 << 2;
 const ALLOWED_FLAGS: u8 = REVISIONABLE | RETRACTABLE;
 
 #[derive(PartialEq, Clone, Debug, TypeInfo, Encode, Decode, DecodeWithMemTracking, Default)]

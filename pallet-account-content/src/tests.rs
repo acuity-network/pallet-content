@@ -1,5 +1,5 @@
 use crate::{mock::*, AccountItemIdIndex, AccountItemIds, Error, Event, Pallet as AccountContent};
-use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content};
+use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content, RETRACTED};
 use polkadot_sdk::frame_support::{assert_noop, assert_ok};
 
 const REVISIONABLE: u8 = 1 << 0;
@@ -110,6 +110,26 @@ fn add_item_rejects_missing_or_unowned_content() {
 }
 
 #[test]
+fn add_item_rejects_retracted_content() {
+    new_test_ext().execute_with(|| {
+        let item_id = ItemId([9; 32]);
+        pallet_content::ItemState::<Test>::insert(
+            item_id.clone(),
+            Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTED,
+            },
+        );
+
+        assert_noop!(
+            AccountContent::<Test>::add_item(RuntimeOrigin::signed(1), item_id),
+            Error::<Test>::ItemRetracted
+        );
+    });
+}
+
+#[test]
 fn add_item_rejects_full_account_list() {
     new_test_ext().execute_with(|| {
         let item_id_1 = insert_owned_item(1, 1);
@@ -210,6 +230,31 @@ fn remove_item_rejects_stale_non_owner_membership() {
         assert_noop!(
             AccountContent::<Test>::remove_item(RuntimeOrigin::signed(1), item_id),
             Error::<Test>::WrongAccount
+        );
+    });
+}
+
+#[test]
+fn remove_item_rejects_retracted_content() {
+    new_test_ext().execute_with(|| {
+        let item_id = publish_item(1, Nonce::default());
+        assert_ok!(AccountContent::<Test>::add_item(
+            RuntimeOrigin::signed(1),
+            item_id.clone()
+        ));
+
+        pallet_content::ItemState::<Test>::insert(
+            item_id.clone(),
+            Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTED,
+            },
+        );
+
+        assert_noop!(
+            AccountContent::<Test>::remove_item(RuntimeOrigin::signed(1), item_id),
+            Error::<Test>::ItemRetracted
         );
     });
 }

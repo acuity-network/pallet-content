@@ -1,5 +1,5 @@
 use crate::{mock::*, AccountProfile, Error, Event, Pallet as AccountProfilePallet};
-use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content};
+use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content, RETRACTED};
 use polkadot_sdk::frame_support::{assert_noop, assert_ok};
 
 const REVISIONABLE: u8 = 1 << 0;
@@ -83,6 +83,26 @@ fn set_profile_rejects_missing_or_unowned_content() {
         assert_noop!(
             AccountProfilePallet::<Test>::set_profile(RuntimeOrigin::signed(2), item_id),
             Error::<Test>::WrongAccount
+        );
+    });
+}
+
+#[test]
+fn set_profile_rejects_retracted_content() {
+    new_test_ext().execute_with(|| {
+        let item_id = ItemId([9; 32]);
+        pallet_content::ItemState::<Test>::insert(
+            item_id.clone(),
+            Item {
+                owner: 1,
+                revision_id: 0,
+                flags: RETRACTED,
+            },
+        );
+
+        assert_noop!(
+            AccountProfilePallet::<Test>::set_profile(RuntimeOrigin::signed(1), item_id),
+            Error::<Test>::ItemRetracted
         );
     });
 }

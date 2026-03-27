@@ -27,7 +27,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use pallet_content::{Item, ItemId, RevisionId};
+    use pallet_content::{Item, ItemId, RevisionId, RETRACTED};
 
     #[derive(
         Clone,
@@ -163,6 +163,7 @@ pub mod pallet {
         ) -> Result<Item<T::AccountId>, Error<T>> {
             let item =
                 pallet_content::ItemState::<T>::get(item_id).ok_or(Error::<T>::ItemNotFound)?;
+            ensure!(item.flags & RETRACTED == 0, Error::<T>::ItemRetracted);
             ensure!(
                 revision_id <= item.revision_id,
                 Error::<T>::RevisionNotFound
@@ -194,6 +195,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// The referenced content item could not be found.
         ItemNotFound,
+        /// The referenced content item has been retracted.
+        ItemRetracted,
         /// The referenced revision could not be found for the item.
         RevisionNotFound,
         /// The provided emoji value is not a valid non-zero Unicode scalar value.

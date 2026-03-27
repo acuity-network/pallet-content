@@ -1,5 +1,5 @@
 use crate::{mock::*, Emoji, Error, Event, ItemAccountReactions, Pallet as ContentReactions};
-use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content, RevisionId};
+use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content, RevisionId, RETRACTED};
 use polkadot_sdk::frame_support::{assert_noop, assert_ok};
 
 const REVISIONABLE: u8 = 1 << 0;
@@ -148,6 +148,41 @@ fn add_reaction_rejects_missing_item() {
                 GRINNING_FACE,
             ),
             Error::<Test>::ItemNotFound
+        );
+    });
+}
+
+#[test]
+fn reactions_reject_retracted_item() {
+    new_test_ext().execute_with(|| {
+        let item_id = ItemId([9; 32]);
+        pallet_content::ItemState::<Test>::insert(
+            item_id.clone(),
+            Item {
+                owner: 1,
+                revision_id: INITIAL_REVISION_ID,
+                flags: RETRACTED,
+            },
+        );
+
+        assert_noop!(
+            ContentReactions::<Test>::add_reaction(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                INITIAL_REVISION_ID,
+                GRINNING_FACE,
+            ),
+            Error::<Test>::ItemRetracted
+        );
+
+        assert_noop!(
+            ContentReactions::<Test>::remove_reaction(
+                RuntimeOrigin::signed(2),
+                item_id,
+                INITIAL_REVISION_ID,
+                GRINNING_FACE,
+            ),
+            Error::<Test>::ItemRetracted
         );
     });
 }

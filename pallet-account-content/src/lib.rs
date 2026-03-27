@@ -27,7 +27,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use pallet_content::ItemId;
+    use pallet_content::{ItemId, RETRACTED};
 
     #[pallet::config]
     #[pallet::disable_frame_system_supertrait_check]
@@ -110,6 +110,7 @@ pub mod pallet {
         fn ensure_item_owned_by(account: &T::AccountId, item_id: &ItemId) -> Result<(), Error<T>> {
             let item =
                 pallet_content::ItemState::<T>::get(item_id).ok_or(Error::<T>::ItemNotFound)?;
+            ensure!(item.flags & RETRACTED == 0, Error::<T>::ItemRetracted);
             ensure!(item.owner == *account, Error::<T>::WrongAccount);
             Ok(())
         }
@@ -162,6 +163,8 @@ pub mod pallet {
         ItemNotAdded,
         /// The referenced content item could not be found.
         ItemNotFound,
+        /// The referenced content item has been retracted.
+        ItemRetracted,
         /// The signer does not own the referenced content item.
         WrongAccount,
         /// The account has reached the maximum supported number of items.
