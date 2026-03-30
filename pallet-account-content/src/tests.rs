@@ -309,3 +309,41 @@ fn remove_item_rejects_retracted_content() {
         );
     });
 }
+
+#[test]
+fn add_item_and_remove_item_are_scoped_per_account() {
+    new_test_ext().execute_with(|| {
+        let item_id_1 = insert_owned_item(1, 1);
+        let item_id_2 = insert_owned_item(2, 2);
+
+        assert_ok!(AccountContent::<Test>::add_item(
+            RuntimeOrigin::signed(1),
+            item_id_1.clone()
+        ));
+        assert_ok!(AccountContent::<Test>::add_item(
+            RuntimeOrigin::signed(2),
+            item_id_2.clone()
+        ));
+
+        assert_eq!(
+            AccountContent::<Test>::get_all_items_by_account(1).into_inner(),
+            vec![item_id_1.clone()]
+        );
+        assert_eq!(
+            AccountContent::<Test>::get_all_items_by_account(2).into_inner(),
+            vec![item_id_2.clone()]
+        );
+
+        assert_ok!(AccountContent::<Test>::remove_item(
+            RuntimeOrigin::signed(1),
+            item_id_1.clone()
+        ));
+
+        assert!(AccountContent::<Test>::get_all_items_by_account(1).is_empty());
+        assert_eq!(
+            AccountContent::<Test>::get_all_items_by_account(2).into_inner(),
+            vec![item_id_2]
+        );
+        assert_eq!(AccountItemIdIndex::<Test>::get(1, item_id_1), 0);
+    });
+}

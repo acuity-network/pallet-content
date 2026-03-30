@@ -163,3 +163,23 @@ fn set_profile_allows_setting_same_item_again() {
         assert_eq!(profile_set_events, 2);
     });
 }
+
+#[test]
+fn set_profile_is_scoped_per_account() {
+    new_test_ext().execute_with(|| {
+        let item_id_1 = insert_owned_item(1, 1);
+        let item_id_2 = insert_owned_item(2, 2);
+
+        assert_ok!(AccountProfilePallet::<Test>::set_profile(
+            RuntimeOrigin::signed(1),
+            item_id_1.clone()
+        ));
+        assert_ok!(AccountProfilePallet::<Test>::set_profile(
+            RuntimeOrigin::signed(2),
+            item_id_2.clone()
+        ));
+
+        assert_eq!(AccountProfile::<Test>::get(1), Some(item_id_1));
+        assert_eq!(AccountProfile::<Test>::get(2), Some(item_id_2));
+    });
+}
