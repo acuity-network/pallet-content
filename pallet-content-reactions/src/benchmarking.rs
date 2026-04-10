@@ -11,6 +11,7 @@ use sp_io::hashing::blake2_256;
 mod benchmarks {
     use super::*;
     use pallet_content::{IpfsHash, ItemId, Nonce, Pallet as Content, RevisionId};
+    use scale_info::prelude::vec::Vec;
 
     const REVISIONABLE: u8 = 1 << 0;
     const INITIAL_REVISION_ID: RevisionId = 0;
