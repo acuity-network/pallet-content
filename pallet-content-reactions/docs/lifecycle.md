@@ -1,20 +1,15 @@
 # Lifecycle
 
-For each `(item_id, revision_id, reactor, emoji)` tuple, membership follows a
-simple lifecycle:
+For each `(item_id, revision_id, reactor)` tuple, the reaction set is the set of
+emojis most recently submitted via `set_reactions`.
 
-- absent
-- added
-- removed back to absent
+## Set flow
 
-## Add flow
+`set_reactions` validates that every emoji value is a valid non-zero Unicode
+scalar value, checks for duplicates within the set, and verifies that the
+target item and revision still exist. On success it emits a single
+`SetReactions` event containing the full reaction set.
 
-`add_reaction` validates the emoji value, verifies that the target item and
-revision still exist, then appends the emoji only if it is not already present.
-
-## Remove flow
-
-`remove_reaction` performs the same validation, then removes the emoji only if it
-exists. When the last emoji is removed for a tuple, the storage entry is deleted.
-
-This keeps storage compact while preserving idempotent add and remove behavior.
+Because no state is stored on-chain, each call completely replaces the prior
+reaction set for that tuple. An indexer should treat the latest `SetReactions`
+event for a given `(item_id, revision_id, reactor)` as the current state.

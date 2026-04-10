@@ -6,8 +6,9 @@
 //! A lightweight account-scoped emoji reaction pallet for `pallet-content`.
 //!
 //! Each account can associate a bounded set of Unicode scalar values with any
-//! content `ItemId` revision. Reactions are stored per
-//! `(item_id, revision_id, account)`.
+//! content `ItemId` revision. Reactions are ephemeral: the pallet stores no
+//! on-chain state and instead emits a `SetReactions` event containing the full
+//! reaction set for every `(item_id, revision_id, account)` tuple.
 
 pub use pallet::*;
 use polkadot_sdk::{frame_support, frame_system};
@@ -51,7 +52,7 @@ pub mod pallet {
     )]
     pub struct Emoji(pub u32);
 
-    /// Reaction set stored for a single `(item_id, revision_id, account)` tuple.
+    /// Reaction set for a single `(item_id, revision_id, account)` tuple.
     pub type ReactionsOf<T> = BoundedVec<Emoji, <T as Config>::MaxEmojis>;
 
     /// Configuration for the content-reactions pallet.
@@ -74,96 +75,34 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Adds an emoji reaction for the caller on a specific item revision.
+        /// Sets the caller's full reaction set for a specific item revision,
+        /// replacing any prior reactions.
         ///
-        /// Re-adding the same emoji is a no-op and does not emit a duplicate
-        /// event.
+        /// The entire reaction set is emitted in a single `SetReactions` event.
+        /// Duplicates within the provided set are rejected.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_reaction())]
-        pub fn add_reaction(
+        #[pallet::weight(<T as Config>::WeightInfo::set_reactions())]
+        pub fn set_reactions(
             origin: OriginFor<T>,
             item_id: ItemId,
             revision_id: RevisionId,
-            emoji: Emoji,
+            reactions: ReactionsOf<T>,
         ) -> DispatchResult {
             let reactor = ensure_signed(origin)?;
 
-            Self::ensure_valid_emoji(emoji)?;
+            Self::ensure_no_duplicate_emojis(&reactions)?;
+            for emoji in reactions.iter() {
+                Self::ensure_valid_emoji(*emoji)?;
+            }
             let item_owner = Self::get_item_and_validate_revision(&item_id, revision_id)?.owner;
 
-            let mut added = false;
-            ItemAccountReactions::<T>::try_mutate_exists(
-                (&item_id, &revision_id, &reactor),
-                |maybe_reactions| -> DispatchResult {
-                    let reactions = maybe_reactions.get_or_insert_with(BoundedVec::default);
-                    if reactions.contains(&emoji) {
-                        return Ok(());
-                    }
-                    reactions
-                        .try_push(emoji)
-                        .map_err(|_| Error::<T>::TooManyEmojis)?;
-                    added = true;
-                    Ok(())
-                },
-            )?;
-
-            if added {
-                Self::deposit_event(Event::AddReaction {
-                    item_id,
-                    revision_id,
-                    item_owner,
-                    reactor,
-                    emoji,
-                });
-            }
-
-            Ok(())
-        }
-
-        /// Removes an emoji reaction for the caller on a specific item revision.
-        ///
-        /// Removing an emoji that is not present is a no-op and does not emit an
-        /// event.
-        #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_reaction())]
-        pub fn remove_reaction(
-            origin: OriginFor<T>,
-            item_id: ItemId,
-            revision_id: RevisionId,
-            emoji: Emoji,
-        ) -> DispatchResult {
-            let reactor = ensure_signed(origin)?;
-
-            Self::ensure_valid_emoji(emoji)?;
-            let item_owner = Self::get_item_and_validate_revision(&item_id, revision_id)?.owner;
-
-            let mut removed = false;
-            ItemAccountReactions::<T>::mutate_exists(
-                (&item_id, &revision_id, &reactor),
-                |maybe_reactions| {
-                    let Some(reactions) = maybe_reactions.as_mut() else {
-                        return;
-                    };
-
-                    if let Some(index) = reactions.iter().position(|stored| stored == &emoji) {
-                        reactions.remove(index);
-                        removed = true;
-                        if reactions.is_empty() {
-                            *maybe_reactions = None;
-                        }
-                    }
-                },
-            );
-
-            if removed {
-                Self::deposit_event(Event::RemoveReaction {
-                    item_id,
-                    revision_id,
-                    item_owner,
-                    reactor,
-                    emoji,
-                });
-            }
+            Self::deposit_event(Event::SetReactions {
+                item_id,
+                revision_id,
+                item_owner,
+                reactor,
+                reactions,
+            });
 
             Ok(())
         }
@@ -174,6 +113,16 @@ pub mod pallet {
         fn ensure_valid_emoji(emoji: Emoji) -> Result<(), Error<T>> {
             ensure!(emoji.0 != 0, Error::<T>::InvalidEmoji);
             ensure!(char::from_u32(emoji.0).is_some(), Error::<T>::InvalidEmoji);
+            Ok(())
+        }
+
+        /// Validates that the provided reaction set contains no duplicate emojis.
+        fn ensure_no_duplicate_emojis(reactions: &ReactionsOf<T>) -> Result<(), Error<T>> {
+            for (i, a) in reactions.iter().enumerate() {
+                for b in reactions.iter().skip(i + 1) {
+                    ensure!(a != b, Error::<T>::DuplicateEmoji);
+                }
+            }
             Ok(())
         }
 
@@ -196,31 +145,18 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// An emoji reaction was added.
-        AddReaction {
+        /// The caller's reaction set for a specific item revision was set.
+        SetReactions {
             /// Reacted content item.
             item_id: ItemId,
-            /// Revision that received the reaction.
+            /// Revision that received the reactions.
             revision_id: RevisionId,
             /// Owner of the reacted item.
             item_owner: T::AccountId,
-            /// Account that added the reaction.
+            /// Account that set the reactions.
             reactor: T::AccountId,
-            /// Emoji that was added.
-            emoji: Emoji,
-        },
-        /// An emoji reaction was removed.
-        RemoveReaction {
-            /// Reacted content item.
-            item_id: ItemId,
-            /// Revision that had the reaction removed.
-            revision_id: RevisionId,
-            /// Owner of the reacted item.
-            item_owner: T::AccountId,
-            /// Account that removed the reaction.
-            reactor: T::AccountId,
-            /// Emoji that was removed.
-            emoji: Emoji,
+            /// The full set of reactions.
+            reactions: ReactionsOf<T>,
         },
     }
 
@@ -235,20 +171,7 @@ pub mod pallet {
         RevisionNotFound,
         /// The provided emoji value is not a valid non-zero Unicode scalar value.
         InvalidEmoji,
-        /// The account has reached the maximum number of emoji reactions for the item.
-        TooManyEmojis,
+        /// The provided reaction set contains duplicate emojis.
+        DuplicateEmoji,
     }
-
-    /// Per-account reaction sets keyed by item id, revision id, and reacting account.
-    #[pallet::storage]
-    pub type ItemAccountReactions<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, ItemId>,
-            NMapKey<Blake2_128Concat, RevisionId>,
-            NMapKey<Blake2_128Concat, T::AccountId>,
-        ),
-        ReactionsOf<T>,
-        OptionQuery,
-    >;
 }

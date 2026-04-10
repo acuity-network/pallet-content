@@ -1,5 +1,5 @@
-use crate::{mock::*, Emoji, Error, Event, ItemAccountReactions, Pallet as ContentReactions};
-use pallet_content::{IpfsHash, Item, ItemId, Nonce, Pallet as Content, RevisionId, RETRACTED};
+use crate::{mock::*, Emoji, Error, Event, Pallet as ContentReactions, ReactionsOf};
+use pallet_content::{IpfsHash, ItemId, Nonce, Pallet as Content, RevisionId, RETRACTED};
 use polkadot_sdk::frame_support::{assert_noop, assert_ok};
 
 const REVISIONABLE: u8 = 1 << 0;
@@ -36,7 +36,7 @@ fn insert_owned_item(owner: u64, fill: u8) -> ItemId {
     let item_id = ItemId([fill; 32]);
     pallet_content::ItemState::<Test>::insert(
         item_id.clone(),
-        Item {
+        pallet_content::Item {
             owner,
             revision_id: INITIAL_REVISION_ID,
             flags: REVISIONABLE,
@@ -66,32 +66,31 @@ fn publish_revision(owner: u64, item_id: ItemId) -> RevisionId {
         .expect("publish revision event must exist")
 }
 
+fn reactions_vec(emojis: Vec<Emoji>) -> ReactionsOf<Test> {
+    emojis
+        .try_into()
+        .expect("emojis fit within MaxEmojis bound")
+}
+
 #[test]
-fn add_reaction_records_storage_and_event() {
+fn set_reactions_emits_event_with_full_set() {
     new_test_ext().execute_with(|| {
         let item_id = publish_item(1, Nonce::default());
 
-        assert_ok!(ContentReactions::<Test>::add_reaction(
+        assert_ok!(ContentReactions::<Test>::set_reactions(
             RuntimeOrigin::signed(2),
             item_id.clone(),
             INITIAL_REVISION_ID,
-            GRINNING_FACE,
+            reactions_vec(vec![GRINNING_FACE]),
         ));
 
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id.clone(), INITIAL_REVISION_ID, 2))
-                .expect("reaction entry must exist")
-                .into_inner(),
-            vec![GRINNING_FACE]
-        );
-
         System::assert_has_event(
-            Event::<Test>::AddReaction {
+            Event::<Test>::SetReactions {
                 item_id,
                 revision_id: INITIAL_REVISION_ID,
                 item_owner: 1,
                 reactor: 2,
-                emoji: GRINNING_FACE,
+                reactions: reactions_vec(vec![GRINNING_FACE]),
             }
             .into(),
         );
@@ -99,53 +98,153 @@ fn add_reaction_records_storage_and_event() {
 }
 
 #[test]
-fn add_reaction_is_noop_for_duplicate_emoji() {
+fn set_reactions_with_multiple_emojis() {
     new_test_ext().execute_with(|| {
         let item_id = publish_item(1, Nonce::default());
 
-        assert_ok!(ContentReactions::<Test>::add_reaction(
+        assert_ok!(ContentReactions::<Test>::set_reactions(
             RuntimeOrigin::signed(2),
             item_id.clone(),
             INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
+            reactions_vec(vec![GRINNING_FACE, SMILING_FACE_WITH_HEART_EYES]),
         ));
 
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2))
-                .expect("reaction entry must exist")
-                .into_inner(),
-            vec![GRINNING_FACE]
+        System::assert_has_event(
+            Event::<Test>::SetReactions {
+                item_id,
+                revision_id: INITIAL_REVISION_ID,
+                item_owner: 1,
+                reactor: 2,
+                reactions: reactions_vec(vec![GRINNING_FACE, SMILING_FACE_WITH_HEART_EYES]),
+            }
+            .into(),
         );
+    });
+}
 
-        let add_events = System::events()
+#[test]
+fn set_reactions_with_empty_set() {
+    new_test_ext().execute_with(|| {
+        let item_id = publish_item(1, Nonce::default());
+
+        assert_ok!(ContentReactions::<Test>::set_reactions(
+            RuntimeOrigin::signed(2),
+            item_id.clone(),
+            INITIAL_REVISION_ID,
+            reactions_vec(vec![]),
+        ));
+
+        System::assert_has_event(
+            Event::<Test>::SetReactions {
+                item_id,
+                revision_id: INITIAL_REVISION_ID,
+                item_owner: 1,
+                reactor: 2,
+                reactions: reactions_vec(vec![]),
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn set_reactions_replaces_previous_set() {
+    new_test_ext().execute_with(|| {
+        let item_id = publish_item(1, Nonce::default());
+
+        assert_ok!(ContentReactions::<Test>::set_reactions(
+            RuntimeOrigin::signed(2),
+            item_id.clone(),
+            INITIAL_REVISION_ID,
+            reactions_vec(vec![GRINNING_FACE]),
+        ));
+
+        assert_ok!(ContentReactions::<Test>::set_reactions(
+            RuntimeOrigin::signed(2),
+            item_id.clone(),
+            INITIAL_REVISION_ID,
+            reactions_vec(vec![PARTY_POPPER]),
+        ));
+
+        let events: Vec<_> = System::events()
             .into_iter()
-            .filter(|record| {
-                matches!(
-                    record.event,
-                    RuntimeEvent::ContentReactions(Event::AddReaction { .. })
-                )
+            .filter_map(|record| match record.event {
+                RuntimeEvent::ContentReactions(Event::SetReactions { reactions, .. }) => {
+                    Some(reactions.into_inner())
+                }
+                _ => None,
             })
-            .count();
+            .collect();
 
-        assert_eq!(add_events, 1);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0], vec![GRINNING_FACE]);
+        assert_eq!(events[1], vec![PARTY_POPPER]);
     });
 }
 
 #[test]
-fn add_reaction_rejects_missing_item() {
+fn set_reactions_rejects_duplicate_emojis() {
+    new_test_ext().execute_with(|| {
+        let item_id = insert_owned_item(1, 1);
+
+        assert_noop!(
+            ContentReactions::<Test>::set_reactions(
+                RuntimeOrigin::signed(2),
+                item_id,
+                INITIAL_REVISION_ID,
+                reactions_vec(vec![GRINNING_FACE, GRINNING_FACE]),
+            ),
+            Error::<Test>::DuplicateEmoji
+        );
+    });
+}
+
+#[test]
+fn set_reactions_rejects_invalid_emoji_values() {
+    new_test_ext().execute_with(|| {
+        let item_id = insert_owned_item(1, 1);
+
+        assert_noop!(
+            ContentReactions::<Test>::set_reactions(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                INITIAL_REVISION_ID,
+                reactions_vec(vec![Emoji(0)]),
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+
+        assert_noop!(
+            ContentReactions::<Test>::set_reactions(
+                RuntimeOrigin::signed(2),
+                item_id.clone(),
+                INITIAL_REVISION_ID,
+                reactions_vec(vec![Emoji(0xD800)]),
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+
+        assert_noop!(
+            ContentReactions::<Test>::set_reactions(
+                RuntimeOrigin::signed(2),
+                item_id,
+                INITIAL_REVISION_ID,
+                reactions_vec(vec![Emoji(0x110000)]),
+            ),
+            Error::<Test>::InvalidEmoji
+        );
+    });
+}
+
+#[test]
+fn set_reactions_rejects_missing_item() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ContentReactions::<Test>::add_reaction(
+            ContentReactions::<Test>::set_reactions(
                 RuntimeOrigin::signed(1),
                 ItemId([7; 32]),
                 INITIAL_REVISION_ID,
-                GRINNING_FACE,
+                reactions_vec(vec![GRINNING_FACE]),
             ),
             Error::<Test>::ItemNotFound
         );
@@ -153,27 +252,12 @@ fn add_reaction_rejects_missing_item() {
 }
 
 #[test]
-fn remove_reaction_rejects_missing_item() {
-    new_test_ext().execute_with(|| {
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
-                RuntimeOrigin::signed(1),
-                ItemId([7; 32]),
-                INITIAL_REVISION_ID,
-                GRINNING_FACE,
-            ),
-            Error::<Test>::ItemNotFound
-        );
-    });
-}
-
-#[test]
-fn reactions_reject_retracted_item() {
+fn set_reactions_rejects_retracted_item() {
     new_test_ext().execute_with(|| {
         let item_id = ItemId([9; 32]);
         pallet_content::ItemState::<Test>::insert(
             item_id.clone(),
-            Item {
+            pallet_content::Item {
                 owner: 1,
                 revision_id: INITIAL_REVISION_ID,
                 flags: RETRACTED,
@@ -181,21 +265,11 @@ fn reactions_reject_retracted_item() {
         );
 
         assert_noop!(
-            ContentReactions::<Test>::add_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                GRINNING_FACE,
-            ),
-            Error::<Test>::ItemRetracted
-        );
-
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
+            ContentReactions::<Test>::set_reactions(
                 RuntimeOrigin::signed(2),
                 item_id,
                 INITIAL_REVISION_ID,
-                GRINNING_FACE,
+                reactions_vec(vec![GRINNING_FACE]),
             ),
             Error::<Test>::ItemRetracted
         );
@@ -203,349 +277,74 @@ fn reactions_reject_retracted_item() {
 }
 
 #[test]
-fn add_reaction_rejects_invalid_emoji_values() {
+fn set_reactions_rejects_unknown_revision_id() {
     new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
+        let item_id = publish_item(1, Nonce::default());
 
         assert_noop!(
-            ContentReactions::<Test>::add_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                Emoji(0)
-            ),
-            Error::<Test>::InvalidEmoji
-        );
-        assert_noop!(
-            ContentReactions::<Test>::add_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                Emoji(0xD800),
-            ),
-            Error::<Test>::InvalidEmoji
-        );
-        assert_noop!(
-            ContentReactions::<Test>::add_reaction(
+            ContentReactions::<Test>::set_reactions(
                 RuntimeOrigin::signed(2),
                 item_id,
-                INITIAL_REVISION_ID,
-                Emoji(0x110000),
+                NEXT_REVISION_ID,
+                reactions_vec(vec![GRINNING_FACE]),
             ),
-            Error::<Test>::InvalidEmoji
+            Error::<Test>::RevisionNotFound
         );
     });
 }
 
 #[test]
-fn remove_reaction_rejects_invalid_emoji_values() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                Emoji(0)
-            ),
-            Error::<Test>::InvalidEmoji
-        );
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                Emoji(0xD800),
-            ),
-            Error::<Test>::InvalidEmoji
-        );
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
-                RuntimeOrigin::signed(2),
-                item_id,
-                INITIAL_REVISION_ID,
-                Emoji(0x110000),
-            ),
-            Error::<Test>::InvalidEmoji
-        );
-    });
-}
-
-#[test]
-fn add_reaction_rejects_when_max_emojis_reached() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            SMILING_FACE_WITH_HEART_EYES,
-        ));
-        assert_noop!(
-            ContentReactions::<Test>::add_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                INITIAL_REVISION_ID,
-                PARTY_POPPER,
-            ),
-            Error::<Test>::TooManyEmojis
-        );
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2))
-                .expect("reaction entry must exist")
-                .into_inner(),
-            vec![GRINNING_FACE, SMILING_FACE_WITH_HEART_EYES]
-        );
-    });
-}
-
-#[test]
-fn remove_reaction_updates_storage_and_event() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            SMILING_FACE_WITH_HEART_EYES,
-        ));
-
-        assert_ok!(ContentReactions::<Test>::remove_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id.clone(), INITIAL_REVISION_ID, 2))
-                .expect("reaction entry must exist")
-                .into_inner(),
-            vec![SMILING_FACE_WITH_HEART_EYES]
-        );
-
-        System::assert_has_event(
-            Event::<Test>::RemoveReaction {
-                item_id,
-                revision_id: INITIAL_REVISION_ID,
-                item_owner: 1,
-                reactor: 2,
-                emoji: GRINNING_FACE,
-            }
-            .into(),
-        );
-    });
-}
-
-#[test]
-fn remove_reaction_is_noop_when_emoji_missing() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::remove_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            PARTY_POPPER,
-        ));
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2))
-                .expect("reaction entry must exist")
-                .into_inner(),
-            vec![GRINNING_FACE]
-        );
-
-        let remove_events = System::events()
-            .into_iter()
-            .filter(|record| {
-                matches!(
-                    record.event,
-                    RuntimeEvent::ContentReactions(Event::RemoveReaction { .. })
-                )
-            })
-            .count();
-
-        assert_eq!(remove_events, 0);
-    });
-}
-
-#[test]
-fn remove_reaction_is_noop_without_existing_reaction_entry() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_ok!(ContentReactions::<Test>::remove_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2)),
-            None
-        );
-
-        let remove_events = System::events()
-            .into_iter()
-            .filter(|record| {
-                matches!(
-                    record.event,
-                    RuntimeEvent::ContentReactions(Event::RemoveReaction { .. })
-                )
-            })
-            .count();
-
-        assert_eq!(remove_events, 0);
-    });
-}
-
-#[test]
-fn remove_reaction_clears_empty_storage_entry() {
-    new_test_ext().execute_with(|| {
-        let item_id = insert_owned_item(1, 1);
-
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::remove_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, INITIAL_REVISION_ID, 2)),
-            None
-        );
-    });
-}
-
-#[test]
-fn add_reaction_is_scoped_to_revision_id() {
+fn set_reactions_is_scoped_to_revision_id() {
     new_test_ext().execute_with(|| {
         let item_id = publish_item(1, Nonce::default());
         let revision_id = publish_revision(1, item_id.clone());
 
         assert_eq!(revision_id, NEXT_REVISION_ID);
 
-        assert_ok!(ContentReactions::<Test>::add_reaction(
+        assert_ok!(ContentReactions::<Test>::set_reactions(
             RuntimeOrigin::signed(2),
             item_id.clone(),
             INITIAL_REVISION_ID,
-            GRINNING_FACE,
+            reactions_vec(vec![GRINNING_FACE]),
         ));
-        assert_ok!(ContentReactions::<Test>::add_reaction(
+        assert_ok!(ContentReactions::<Test>::set_reactions(
             RuntimeOrigin::signed(2),
             item_id.clone(),
             revision_id,
-            PARTY_POPPER,
+            reactions_vec(vec![PARTY_POPPER]),
         ));
 
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id.clone(), INITIAL_REVISION_ID, 2))
-                .expect("initial revision reaction entry must exist")
-                .into_inner(),
-            vec![GRINNING_FACE]
-        );
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, revision_id, 2))
-                .expect("next revision reaction entry must exist")
-                .into_inner(),
-            vec![PARTY_POPPER]
-        );
+        let events: Vec<_> = System::events()
+            .into_iter()
+            .filter_map(|record| match record.event {
+                RuntimeEvent::ContentReactions(Event::SetReactions {
+                    revision_id,
+                    reactions,
+                    ..
+                }) => Some((revision_id, reactions.into_inner())),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0], (INITIAL_REVISION_ID, vec![GRINNING_FACE]));
+        assert_eq!(events[1], (NEXT_REVISION_ID, vec![PARTY_POPPER]));
     });
 }
 
 #[test]
-fn remove_reaction_only_affects_target_revision() {
+fn set_reactions_validates_emojis_before_duplicate_check() {
     new_test_ext().execute_with(|| {
-        let item_id = publish_item(1, Nonce::default());
-        let revision_id = publish_revision(1, item_id.clone());
-
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-        assert_ok!(ContentReactions::<Test>::add_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            revision_id,
-            GRINNING_FACE,
-        ));
-
-        assert_ok!(ContentReactions::<Test>::remove_reaction(
-            RuntimeOrigin::signed(2),
-            item_id.clone(),
-            INITIAL_REVISION_ID,
-            GRINNING_FACE,
-        ));
-
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id.clone(), INITIAL_REVISION_ID, 2)),
-            None
-        );
-        assert_eq!(
-            ItemAccountReactions::<Test>::get((item_id, revision_id, 2))
-                .expect("next revision reaction entry must still exist")
-                .into_inner(),
-            vec![GRINNING_FACE]
-        );
-    });
-}
-
-#[test]
-fn reactions_reject_unknown_revision_id() {
-    new_test_ext().execute_with(|| {
-        let item_id = publish_item(1, Nonce::default());
+        let item_id = insert_owned_item(1, 1);
 
         assert_noop!(
-            ContentReactions::<Test>::add_reaction(
-                RuntimeOrigin::signed(2),
-                item_id.clone(),
-                NEXT_REVISION_ID,
-                GRINNING_FACE,
-            ),
-            Error::<Test>::RevisionNotFound
-        );
-
-        assert_noop!(
-            ContentReactions::<Test>::remove_reaction(
+            ContentReactions::<Test>::set_reactions(
                 RuntimeOrigin::signed(2),
                 item_id,
-                NEXT_REVISION_ID,
-                GRINNING_FACE,
+                INITIAL_REVISION_ID,
+                reactions_vec(vec![Emoji(0), GRINNING_FACE]),
             ),
-            Error::<Test>::RevisionNotFound
+            Error::<Test>::InvalidEmoji
         );
     });
 }
