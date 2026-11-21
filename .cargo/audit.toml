@@ -11,13 +11,8 @@ ignore = [
   "RUSTSEC-2025-0055", # tracing-subscriber via ark* / revm-precompile in polkadot-sdk
   "RUSTSEC-2025-0057", # fxhash unmaintained (transitive in polkadot-sdk)
   "RUSTSEC-2025-0010", # ring CPU DoS advisory via polkadot-sdk transitives
-  "RUSTSEC-2025-0118", # wasmtime shared-memory API issue via polkadot-sdk transitives
   "RUSTSEC-2026-0002", # wasmtime panic in memory refill via polkadot-sdk transitives
-  "RUSTSEC-2026-0006", # wasmtime x86-64 codegen issue via polkadot-sdk transitives
-  "RUSTSEC-2026-0020", # wasmtime i31ref/f64 lane issue via polkadot-sdk transitives
-  "RUSTSEC-2026-0021", # wasmtime via sc-executor-wasmtime in polkadot-sdk
   "RUSTSEC-2024-0384", # instant crate unmaintained (transitive in polkadot-sdk)
-  "RUSTSEC-2026-0012", # keccak unsound opt-in ARM backend (transitive)
   "RUSTSEC-2026-0258", # h2 (transitive via libp2p-upnp/libp2p in polkadot-sdk)
   "RUSTSEC-2026-0098", # rustls-webpki (transitive via libp2p-tls in polkadot-sdk)
   "RUSTSEC-2026-0099", # rustls-webpki reachable panic in certificate revocation list parsing
